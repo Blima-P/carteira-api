@@ -1,5 +1,7 @@
 # Carteira API
 
+[![CI](https://github.com/Blima-P/carteira-api/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Blima-P/carteira-api/actions/workflows/ci.yml)
+
 API REST de carteira digital: usuários podem **depositar**, **transferir saldo entre si** e **consultar o extrato**.
 
 O foco do projeto é demonstrar requisitos essenciais de sistemas financeiros:
@@ -19,6 +21,7 @@ O foco do projeto é demonstrar requisitos essenciais de sistemas financeiros:
 ## Roadmap
 
 - [x] Dia 0 — Estrutura inicial do projeto
+- [x] Dia 0.5 — Fluxo Git (develop/homolog/main), proteção de branches e CI
 - [ ] Dia 1 — Banco de dados (PostgreSQL via Docker + migrations)
 - [ ] Dia 2 — Cadastro e login com JWT
 - [ ] Dia 3 — Consulta de saldo e depósito
@@ -26,7 +29,7 @@ O foco do projeto é demonstrar requisitos essenciais de sistemas financeiros:
 - [ ] Dia 5 — Idempotência (`Idempotency-Key`)
 - [ ] Dia 6 — Extrato paginado
 - [ ] Dia 7 — Testes de concorrência e rollback
-- [ ] Dia 8 — Dockerfile + CI (GitHub Actions)
+- [ ] Dia 8 — Dockerfile + deploy simulado em homolog/produção (GitHub Actions + GHCR)
 - [ ] Dia 9 — Documentação final + Swagger
 
 ## Como rodar
@@ -44,3 +47,8 @@ Health check: <http://localhost:8080/actuator/health>
 ```bash
 ./mvnw verify
 ```
+
+## Fluxo de desenvolvimento
+
+`feat/*` → `develop` → `homolog` → `main`, com Pull Requests, CI obrigatório, Conventional Commits e versionamento SemVer via tags.
+Detalhes em [CONTRIBUTING.md](CONTRIBUTING.md).
