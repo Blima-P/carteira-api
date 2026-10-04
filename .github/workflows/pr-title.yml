@@ -29,8 +29,11 @@ jobs:
           fi
 
           pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?!?: .{3,}$'
+          branch_pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|hotfix)/'
           if [[ "$TITLE" =~ $pattern ]]; then
             echo "Título válido: $TITLE"
+          elif [[ "$HEAD" =~ $branch_pattern ]] && [[ "$TITLE" =~ ^.{3,}$ ]]; then
+            echo "Título descritivo aceito para branch de trabalho: $TITLE"
           else
             echo "::error::Título fora do padrão Conventional Commits: '$TITLE'"
             echo "Exemplos válidos:"
