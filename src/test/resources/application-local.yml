@@ -1,0 +1,9 @@
+# Perfil usado apenas pelo modo local (./mvnw spring-boot:test-run). Não vai para o JAR de produção.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,flyway
+  endpoint:
+    health:
+      show-details: always
