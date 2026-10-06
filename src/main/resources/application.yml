@@ -16,6 +16,13 @@ spring:
   flyway:
     enabled: true
 
+seguranca:
+  jwt:
+    # Obrigatório, mínimo de 32 caracteres (HS256). Nunca versione o valor real.
+    segredo: ${JWT_SECRET:}
+    emissor: carteira-api
+    expiracao: 1h
+
 management:
   endpoints:
     web:
