@@ -7,8 +7,6 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.braga.carteiradigital.suporte.IntegracaoTestBase;
 
@@ -18,15 +16,11 @@ import com.braga.carteiradigital.suporte.IntegracaoTestBase;
  */
 class SchemaBancoDeDadosTest extends IntegracaoTestBase {
 
-    @Autowired
-    private JdbcTemplate jdbc;
-
     private UUID usuarioId;
     private UUID carteiraId;
 
     @BeforeEach
     void prepararDados() {
-        jdbc.execute("TRUNCATE lancamentos, transacoes, carteiras, usuarios CASCADE");
         usuarioId = inserirUsuario("ana@email.com");
         carteiraId = inserirCarteira(usuarioId);
     }
