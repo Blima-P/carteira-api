@@ -1,0 +1,31 @@
+### Requisições para testar a API no VS Code (extensão "REST Client") ou no IntelliJ.
+### Suba a API antes: ./mvnw spring-boot:test-run
+
+@baseUrl = http://localhost:8080
+
+### Cadastrar usuário
+POST {{baseUrl}}/api/auth/cadastro
+Content-Type: application/json
+
+{
+  "nome": "Pedro Braga",
+  "email": "pedro@email.com",
+  "senha": "senha-segura-123"
+}
+
+### Login (guarda o token na variável "login")
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "pedro@email.com",
+  "senha": "senha-segura-123"
+}
+
+### Dados do usuário autenticado (usa o token do login acima)
+GET {{baseUrl}}/api/usuarios/eu
+Authorization: Bearer {{login.response.body.token}}
+
+### Sem token: deve retornar 401
+GET {{baseUrl}}/api/usuarios/eu
