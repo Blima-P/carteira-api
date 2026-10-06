@@ -24,7 +24,7 @@ O foco do projeto é demonstrar requisitos essenciais de sistemas financeiros:
 - [x] Dia 0 — Estrutura inicial do projeto
 - [x] Dia 0.5 — Fluxo Git (develop/homolog/main), proteção de branches e CI
 - [x] Dia 1 — Banco de dados (migrations) e estrutura modular
-- [ ] Dia 2 — Cadastro e login com JWT
+- [x] Dia 2 — Cadastro e login com JWT
 - [ ] Dia 3 — Consulta de saldo e depósito
 - [ ] Dia 4 — Transferência atômica (ACID + lock pessimista)
 - [ ] Dia 5 — Idempotência (`Idempotency-Key`)
@@ -39,10 +39,13 @@ O foco do projeto é demonstrar requisitos essenciais de sistemas financeiros:
 
 ```text
 com.braga.carteiradigital
-├── usuario      → cadastro e autenticação
-├── carteira     → saldo, lançamentos e extrato (único módulo que altera saldo)
-└── transacao    → depósitos e transferências (ACID + idempotência)
+├── usuario        → cadastro e autenticação (JWT)
+├── carteira       → saldo, lançamentos e extrato (único módulo que altera saldo)
+├── transacao      → depósitos e transferências (ACID + idempotência)
+└── compartilhado  → segurança, tratamento de erros (RFC 9457) e tipo base de erro de negócio
 ```
+
+Os módulos se comunicam por **eventos** (ex.: `UsuarioCadastrado`) ou pela API pública no pacote base de cada módulo.
 
 Dentro de cada módulo:
 
@@ -52,7 +55,7 @@ Dentro de cada módulo:
 ├── aplicacao/                casos de uso + portas (interfaces) de entrada e saída
 └── adaptadores/
     ├── entrada/web/          controllers REST
-    └── saida/persistencia/   entidades JPA e repositórios
+    └── saida/                persistência (JPA), segurança (BCrypt, JWT)...
 ```
 
 As fronteiras são verificadas **automaticamente** pelo `ArquiteturaTest`: o build falha se um módulo acessar o interior de outro, se houver ciclo entre módulos ou se o domínio depender de framework.
@@ -79,8 +82,37 @@ Encerre com `Ctrl+C`. Para zerar o banco, rode `./mvnw clean`.
 ```bash
 cp .env.example .env          # opcional: ajuste credenciais
 docker compose up -d          # sobe o PostgreSQL 18
+export JWT_SECRET="$(openssl rand -base64 48)"   # obrigatório fora do modo dev
 ./mvnw spring-boot:run        # o Flyway cria as tabelas na inicialização
 ```
+
+## Endpoints
+
+| Método | Rota                  | Autenticação | Descrição                              |
+|--------|-----------------------|--------------|----------------------------------------|
+| POST   | `/api/auth/cadastro`  | —            | Cadastra usuário (`201`)               |
+| POST   | `/api/auth/login`     | —            | Retorna um token JWT válido por 1h     |
+| GET    | `/api/usuarios/eu`    | Bearer JWT   | Dados do usuário dono do token         |
+
+Exemplos prontos em [`http/autenticacao.http`](http/autenticacao.http) (extensão **REST Client** do VS Code). Com `curl`:
+
+```bash
+curl -X POST localhost:8080/api/auth/cadastro -H "Content-Type: application/json" \
+  -d '{"nome":"Pedro","email":"pedro@email.com","senha":"senha-segura-123"}'
+
+TOKEN=$(curl -s -X POST localhost:8080/api/auth/login -H "Content-Type: application/json" \
+  -d '{"email":"pedro@email.com","senha":"senha-segura-123"}' | jq -r .token)
+
+curl localhost:8080/api/usuarios/eu -H "Authorization: Bearer $TOKEN"
+```
+
+Erros seguem o padrão **Problem Details (RFC 9457)**, sempre com um `codigo` estável:
+
+```json
+{ "status": 409, "codigo": "email-ja-cadastrado", "detail": "Já existe um usuário com este e-mail." }
+```
+
+Decisões de segurança em [ADR 0002](docs/adr/0002-autenticacao-jwt.md).
 
 ## Modelo de dados
 
