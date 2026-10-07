@@ -6,16 +6,21 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.method.ParameterErrors;
+import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import com.braga.carteiradigital.compartilhado.dominio.ErroDeNegocio;
@@ -54,9 +59,28 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         for (FieldError campo : erro.getBindingResult().getFieldErrors()) {
             campos.putIfAbsent(campo.getField(), campo.getDefaultMessage());
         }
-        ProblemDetail corpo = problema(HttpStatus.BAD_REQUEST, "dados-invalidos", "Um ou mais campos são inválidos.");
-        corpo.setProperty("campos", campos);
-        return ResponseEntity.badRequest().body(corpo);
+        return ResponseEntity.badRequest().body(dadosInvalidos(campos));
+    }
+
+    /**
+     * Lançada no lugar da anterior quando o controller também valida parâmetros fora do corpo
+     * (ex.: o cabeçalho {@code Idempotency-Key}). A resposta é a mesma: {@code dados-invalidos} + {@code campos}.
+     */
+    @Override
+    protected ResponseEntity<Object> handleHandlerMethodValidationException(HandlerMethodValidationException erro,
+            HttpHeaders headers, HttpStatusCode status, WebRequest requisicao) {
+        Map<String, String> campos = new LinkedHashMap<>();
+        for (ParameterValidationResult resultado : erro.getParameterValidationResults()) {
+            if (resultado instanceof ParameterErrors errosDoCorpo) {
+                for (FieldError campo : errosDoCorpo.getFieldErrors()) {
+                    campos.putIfAbsent(campo.getField(), campo.getDefaultMessage());
+                }
+            } else if (!resultado.getResolvableErrors().isEmpty()) {
+                campos.putIfAbsent(nomeDoParametro(resultado.getMethodParameter()),
+                        resultado.getResolvableErrors().getFirst().getDefaultMessage());
+            }
+        }
+        return ResponseEntity.badRequest().body(dadosInvalidos(campos));
     }
 
     /** Erros do próprio Spring MVC (JSON malformado, rota inexistente...) também recebem um {@code codigo}. */
@@ -68,6 +92,21 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             problema.setProperty("codigo", status.is4xxClientError() ? "requisicao-invalida" : "erro-interno");
         }
         return super.handleExceptionInternal(erro, corpo, headers, status, requisicao);
+    }
+
+    private static ProblemDetail dadosInvalidos(Map<String, String> campos) {
+        ProblemDetail corpo = problema(HttpStatus.BAD_REQUEST, "dados-invalidos", "Um ou mais campos são inválidos.");
+        corpo.setProperty("campos", campos);
+        return corpo;
+    }
+
+    /** Para cabeçalhos, usa o nome HTTP (ex.: {@code Idempotency-Key}) em vez do nome da variável Java. */
+    private static String nomeDoParametro(MethodParameter parametro) {
+        RequestHeader cabecalho = parametro.getParameterAnnotation(RequestHeader.class);
+        if (cabecalho != null) {
+            return cabecalho.name().isEmpty() ? cabecalho.value() : cabecalho.name();
+        }
+        return parametro.getParameterName();
     }
 
     private static ProblemDetail problema(HttpStatusCode status, String codigo, String detalhe) {
