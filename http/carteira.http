@@ -1,0 +1,49 @@
+### Carteira e depósito. Suba a API antes: ./mvnw spring-boot:test-run
+### Rode primeiro o "Login" do arquivo autenticacao.http, ou o abaixo.
+
+@baseUrl = http://localhost:8080
+
+### Login (guarda o token na variável "login")
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "pedro@email.com",
+  "senha": "senha-segura-123"
+}
+
+### Consultar saldo da minha carteira
+GET {{baseUrl}}/api/carteiras/minha
+Authorization: Bearer {{login.response.body.token}}
+
+### Depositar ({{$guid}} gera uma Idempotency-Key nova a cada envio)
+POST {{baseUrl}}/api/transacoes/depositos
+Authorization: Bearer {{login.response.body.token}}
+Idempotency-Key: {{$guid}}
+Content-Type: application/json
+
+{
+  "valor": 150.50,
+  "descricao": "Primeiro depósito"
+}
+
+### Mesma chave duas vezes: envie duas vezes. A segunda retorna 409 e não deposita de novo
+POST {{baseUrl}}/api/transacoes/depositos
+Authorization: Bearer {{login.response.body.token}}
+Idempotency-Key: deposito-teste-repetido
+Content-Type: application/json
+
+{
+  "valor": 10.00
+}
+
+### Valor inválido (3 casas decimais): 400 dados-invalidos
+POST {{baseUrl}}/api/transacoes/depositos
+Authorization: Bearer {{login.response.body.token}}
+Idempotency-Key: {{$guid}}
+Content-Type: application/json
+
+{
+  "valor": 10.001
+}
