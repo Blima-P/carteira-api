@@ -21,6 +21,8 @@ O foco do projeto é demonstrar requisitos essenciais de sistemas financeiros:
 
 ## Roadmap
 
+Histórico de versões no [CHANGELOG](CHANGELOG.md).
+
 - [x] Dia 0 — Estrutura inicial do projeto
 - [x] Dia 0.5 — Fluxo Git (develop/homolog/main), proteção de branches e CI
 - [x] Dia 1 — Banco de dados (migrations) e estrutura modular

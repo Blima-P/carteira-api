@@ -78,6 +78,9 @@ gh pr create --base develop --fill
 ## Passo a passo de uma release
 
 ```bash
+# 0. preparar a versão (branch chore/release-vX.Y.Z -> develop, squash):
+#    tirar o -SNAPSHOT do pom.xml e mover "Não lançado" do CHANGELOG.md para a nova versão
+
 # 1. develop -> homolog
 gh pr create --base homolog --head develop --title "release: v0.1.0"
 # após merge:
