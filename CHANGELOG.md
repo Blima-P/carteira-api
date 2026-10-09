@@ -6,6 +6,14 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+### Adicionado
+
+- `POST /api/transacoes/transferencias`: transferência para outro usuário, identificado pelo e-mail, com `Idempotency-Key` obrigatória. O débito, o crédito, a transação e os dois lançamentos são gravados **na mesma transação de banco**.
+- Bloqueio das duas carteiras **sempre na mesma ordem**, para evitar *deadlock* em transferências cruzadas simultâneas.
+- Novos erros `422`: `saldo-insuficiente`, `destinatario-nao-encontrado` e `transferencia-para-si-mesmo`.
+- `UsuarioApi`: API pública do módulo Usuário para buscar um usuário pelo e-mail.
+- Testes de concorrência: transferências simultâneas não gastam mais que o saldo e transferências cruzadas não causam *deadlock*.
+
 ## [0.1.0] - 2026-10-08
 
 Primeira versão: cadastro, autenticação, saldo e depósito.

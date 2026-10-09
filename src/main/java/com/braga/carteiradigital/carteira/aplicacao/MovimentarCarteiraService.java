@@ -40,11 +40,46 @@ class MovimentarCarteiraService implements CarteiraApi {
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public Dinheiro creditar(UUID carteiraId, Dinheiro valor, UUID transacaoId) {
-        Carteira carteira = carteiras.buscarPorIdComBloqueio(carteiraId).orElseThrow(CarteiraNaoEncontradaException::new);
+        Movimentacao credito = bloquear(carteiraId).creditar(valor, transacaoId, relogio);
+        registrar(credito);
+        return credito.carteira().saldo();
+    }
 
-        Movimentacao movimentacao = carteira.creditar(valor, transacaoId, relogio);
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Dinheiro transferir(UUID carteiraOrigemId, UUID carteiraDestinoId, Dinheiro valor, UUID transacaoId) {
+        if (carteiraOrigemId.equals(carteiraDestinoId)) {
+            throw new IllegalArgumentException("origem e destino devem ser carteiras diferentes");
+        }
+
+        // Se A→B bloqueasse A e depois B, enquanto B→A bloqueasse B e depois A, cada transação
+        // esperaria pela outra para sempre (deadlock). Bloqueando sempre na mesma ordem (menor id
+        // primeiro), quem chegar depois apenas espera a vez.
+        Carteira origem;
+        Carteira destino;
+        if (carteiraOrigemId.compareTo(carteiraDestinoId) < 0) {
+            origem = bloquear(carteiraOrigemId);
+            destino = bloquear(carteiraDestinoId);
+        } else {
+            destino = bloquear(carteiraDestinoId);
+            origem = bloquear(carteiraOrigemId);
+        }
+
+        // Com as duas carteiras bloqueadas, nenhuma outra operação altera o saldo da origem entre a
+        // verificação de saldo suficiente e o débito
+        Movimentacao debito = origem.debitar(valor, transacaoId, relogio);
+        Movimentacao credito = destino.creditar(valor, transacaoId, relogio);
+        registrar(debito);
+        registrar(credito);
+        return debito.carteira().saldo();
+    }
+
+    private Carteira bloquear(UUID carteiraId) {
+        return carteiras.buscarPorIdComBloqueio(carteiraId).orElseThrow(CarteiraNaoEncontradaException::new);
+    }
+
+    private void registrar(Movimentacao movimentacao) {
         carteiras.atualizar(movimentacao.carteira());
         lancamentos.registrar(movimentacao.lancamento());
-        return movimentacao.carteira().saldo();
     }
 }

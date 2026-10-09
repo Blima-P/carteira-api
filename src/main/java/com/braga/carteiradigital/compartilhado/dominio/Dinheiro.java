@@ -34,6 +34,10 @@ public record Dinheiro(BigDecimal quantia) implements Comparable<Dinheiro> {
         return new Dinheiro(quantia.add(outro.quantia));
     }
 
+    public Dinheiro subtrair(Dinheiro outro) {
+        return new Dinheiro(quantia.subtract(outro.quantia));
+    }
+
     public boolean ehPositivo() {
         return quantia.signum() > 0;
     }

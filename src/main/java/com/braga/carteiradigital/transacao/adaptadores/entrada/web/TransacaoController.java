@@ -14,12 +14,16 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.braga.carteiradigital.compartilhado.dominio.Dinheiro;
 import com.braga.carteiradigital.transacao.aplicacao.porta.entrada.DepositarUseCase;
+import com.braga.carteiradigital.transacao.aplicacao.porta.entrada.TransferirUseCase;
 import com.braga.carteiradigital.transacao.dominio.ChaveIdempotencia;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 
+/**
+ * Endpoints financeiros. Todos exigem o cabeçalho {@code Idempotency-Key}, e o cabeçalho é
+ * declarado com {@code required = false} para que a ausência vire um erro {@code dados-invalidos}
+ * igual aos dos outros campos.
+ */
 @RestController
 @RequestMapping("/api/transacoes")
 class TransacaoController {
@@ -27,9 +31,11 @@ class TransacaoController {
     static final String IDEMPOTENCY_KEY = "Idempotency-Key";
 
     private final DepositarUseCase depositar;
+    private final TransferirUseCase transferir;
 
-    TransacaoController(DepositarUseCase depositar) {
+    TransacaoController(DepositarUseCase depositar, TransferirUseCase transferir) {
         this.depositar = depositar;
+        this.transferir = transferir;
     }
 
     /** O depósito sempre vai para a carteira do dono do token. */
@@ -37,15 +43,23 @@ class TransacaoController {
     @ResponseStatus(HttpStatus.CREATED)
     ComprovanteResponse depositar(
             @AuthenticationPrincipal Jwt token,
-            // required = false: a ausência vira um erro "dados-invalidos" igual aos outros campos
-            @RequestHeader(name = IDEMPOTENCY_KEY, required = false)
-            @NotBlank(message = "é obrigatório")
-            @Pattern(regexp = ChaveIdempotencia.FORMATO,
-                    message = "deve ter de 1 a 64 caracteres entre letras, números, '-' e '_'")
-            String chaveIdempotencia,
+            @RequestHeader(name = IDEMPOTENCY_KEY, required = false) @ChaveIdempotenciaValida String chaveIdempotencia,
             @Valid @RequestBody DepositoRequest requisicao) {
         var comando = new DepositarUseCase.Comando(UUID.fromString(token.getSubject()),
                 new Dinheiro(requisicao.valor()), requisicao.descricao(), new ChaveIdempotencia(chaveIdempotencia));
         return ComprovanteResponse.de(depositar.depositar(comando));
+    }
+
+    /** Sai da carteira do dono do token e vai para a carteira do usuário com o e-mail informado. */
+    @PostMapping("/transferencias")
+    @ResponseStatus(HttpStatus.CREATED)
+    ComprovanteResponse transferir(
+            @AuthenticationPrincipal Jwt token,
+            @RequestHeader(name = IDEMPOTENCY_KEY, required = false) @ChaveIdempotenciaValida String chaveIdempotencia,
+            @Valid @RequestBody TransferenciaRequest requisicao) {
+        var comando = new TransferirUseCase.Comando(UUID.fromString(token.getSubject()),
+                requisicao.emailDestinatario(), new Dinheiro(requisicao.valor()), requisicao.descricao(),
+                new ChaveIdempotencia(chaveIdempotencia));
+        return ComprovanteResponse.de(transferir.transferir(comando));
     }
 }

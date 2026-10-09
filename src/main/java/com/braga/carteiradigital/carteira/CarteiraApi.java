@@ -20,4 +20,12 @@ public interface CarteiraApi {
      * A carteira fica bloqueada até o fim da transação, então créditos simultâneos não se perdem.
      */
     Dinheiro creditar(UUID carteiraId, Dinheiro valor, UUID transacaoId);
+
+    /**
+     * Debita {@code valor} da origem e credita no destino, registrando os dois lançamentos,
+     * e devolve o novo saldo da origem. As duas carteiras ficam bloqueadas até o fim da transação.
+     *
+     * <p>Lança um erro de negócio {@code saldo-insuficiente} (422) se a origem não tiver saldo.
+     */
+    Dinheiro transferir(UUID carteiraOrigemId, UUID carteiraDestinoId, Dinheiro valor, UUID transacaoId);
 }

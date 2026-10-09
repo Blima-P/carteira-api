@@ -28,7 +28,7 @@ Histórico de versões no [CHANGELOG](CHANGELOG.md).
 - [x] Dia 1 — Banco de dados (migrations) e estrutura modular
 - [x] Dia 2 — Cadastro e login com JWT
 - [x] Dia 3 — Consulta de saldo e depósito
-- [ ] Dia 4 — Transferência atômica (ACID + lock pessimista)
+- [x] Dia 4 — Transferência atômica (ACID + lock pessimista)
 - [ ] Dia 5 — Idempotência (`Idempotency-Key`)
 - [ ] Dia 6 — Extrato paginado
 - [ ] Dia 7 — Testes de concorrência e rollback
@@ -47,7 +47,7 @@ com.braga.carteiradigital
 └── compartilhado  → segurança, tratamento de erros (RFC 9457) e tipo base de erro de negócio
 ```
 
-Os módulos se comunicam por **eventos** (ex.: `UsuarioCadastrado`, que cria a carteira na mesma transação do cadastro) ou pela **API pública** no pacote base de cada módulo (ex.: `CarteiraApi`, a única forma de alterar um saldo).
+Os módulos se comunicam por **eventos** (ex.: `UsuarioCadastrado`, que cria a carteira na mesma transação do cadastro) ou pela **API pública** no pacote base de cada módulo (ex.: `CarteiraApi`, a única forma de alterar um saldo, e `UsuarioApi`, usada para encontrar o destinatário de uma transferência).
 
 Dentro de cada módulo:
 
@@ -98,6 +98,7 @@ export JWT_SECRET="$(openssl rand -base64 48)"   # obrigatório fora do modo dev
 | GET    | `/api/usuarios/eu`          | Bearer JWT                      | Dados do usuário dono do token                   |
 | GET    | `/api/carteiras/minha`      | Bearer JWT                      | Saldo da carteira do dono do token               |
 | POST   | `/api/transacoes/depositos` | Bearer JWT + `Idempotency-Key`  | Deposita na própria carteira (`201` + comprovante) |
+| POST   | `/api/transacoes/transferencias` | Bearer JWT + `Idempotency-Key` | Transfere para outro usuário, pelo e-mail (`201` + comprovante) |
 
 Exemplos prontos em [`http/autenticacao.http`](http/autenticacao.http) e [`http/carteira.http`](http/carteira.http) (extensão **REST Client** do VS Code). Com `curl`:
 
@@ -115,6 +116,11 @@ curl -X POST localhost:8080/api/transacoes/depositos -H "Authorization: Bearer $
   -H "Idempotency-Key: $(uuidgen)" -H "Content-Type: application/json" \
   -d '{"valor": 150.50, "descricao": "Primeiro depósito"}'
 
+# Transferência: o destinatário (já cadastrado) é identificado pelo e-mail
+curl -X POST localhost:8080/api/transacoes/transferencias -H "Authorization: Bearer $TOKEN" \
+  -H "Idempotency-Key: $(uuidgen)" -H "Content-Type: application/json" \
+  -d '{"emailDestinatario": "ana@email.com", "valor": 50.00, "descricao": "Almoço"}'
+
 curl localhost:8080/api/carteiras/minha -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -124,7 +130,7 @@ Erros seguem o padrão **Problem Details (RFC 9457)**, sempre com um `codigo` es
 { "status": 409, "codigo": "email-ja-cadastrado", "detail": "Já existe um usuário com este e-mail." }
 ```
 
-Decisões de segurança em [ADR 0002](docs/adr/0002-autenticacao-jwt.md). Decisões sobre dinheiro, livro-razão e concorrência em [ADR 0003](docs/adr/0003-movimentacao-de-saldo.md).
+Decisões de segurança em [ADR 0002](docs/adr/0002-autenticacao-jwt.md). Decisões sobre dinheiro, livro-razão e concorrência em [ADR 0003](docs/adr/0003-movimentacao-de-saldo.md). Decisões da transferência em [ADR 0004](docs/adr/0004-transferencia-entre-carteiras.md).
 
 ## Modelo de dados
 
@@ -151,7 +157,11 @@ Os testes de integração usam um PostgreSQL real embarcado (não precisam de Do
 
 O build também gera diagramas dos módulos em `target/spring-modulith-docs`.
 
-Destaques: `AtomicidadeIntegracaoTest` prova o rollback entre módulos (uma falha no meio do depósito desfaz tudo), e `DepositoIntegracaoTest` dispara depósitos simultâneos na mesma carteira para provar que nenhum se perde.
+Destaques:
+
+- `AtomicidadeIntegracaoTest` prova o rollback entre módulos: uma falha no meio do depósito ou da transferência (ex.: no crédito do destinatário) desfaz tudo, inclusive o débito.
+- `DepositoIntegracaoTest` dispara depósitos simultâneos na mesma carteira para provar que nenhum se perde.
+- `TransferenciaIntegracaoTest` dispara 15 transferências de R$ 10 ao mesmo tempo com saldo de R$ 100: exatamente 5 são recusadas e o saldo nunca fica negativo. Também dispara transferências cruzadas (A→B e B→A) simultâneas para provar que não há *deadlock*.
 
 ## Fluxo de desenvolvimento
 
