@@ -1,0 +1,41 @@
+name: PR Title
+
+# Como os PRs para develop usam "squash merge", o título do PR vira a mensagem do commit.
+# Por isso o título precisa seguir o padrão Conventional Commits.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title:
+    name: pr-title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar Conventional Commits
+        # O título vem por variável de ambiente (e não interpolado direto no script) para evitar script injection.
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD: ${{ github.event.pull_request.head.ref }}
+        run: |
+          # PRs de promoção entre ambientes têm título livre
+          if { [ "$HEAD" = "develop" ] && [ "$BASE" = "homolog" ]; } || \
+             { [ "$HEAD" = "homolog" ] && [ "$BASE" = "main" ]; }; then
+            echo "PR de release ($HEAD -> $BASE): validação de título ignorada."
+            exit 0
+          fi
+
+          pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?!?: .{3,}$'
+          if [[ "$TITLE" =~ $pattern ]]; then
+            echo "Título válido: $TITLE"
+          else
+            echo "::error::Título fora do padrão Conventional Commits: '$TITLE'"
+            echo "Exemplos válidos:"
+            echo "  feat(auth): adiciona login com JWT"
+            echo "  fix(transfer): corrige arredondamento do saldo"
+            echo "  ci: adiciona pipeline de build"
+            exit 1
+          fi
