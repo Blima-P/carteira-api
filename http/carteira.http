@@ -1,4 +1,4 @@
-### Carteira e depósito. Suba a API antes: ./mvnw spring-boot:test-run
+### Carteira, depósito e transferência. Suba a API antes: ./mvnw spring-boot:test-run
 ### Rode primeiro o "Login" do arquivo autenticacao.http, ou o abaixo.
 
 @baseUrl = http://localhost:8080
@@ -46,4 +46,48 @@ Content-Type: application/json
 
 {
   "valor": 10.001
+}
+
+### Cadastrar uma destinatária para as transferências (rode uma vez; depois retorna 409)
+POST {{baseUrl}}/api/auth/cadastro
+Content-Type: application/json
+
+{
+  "nome": "Ana",
+  "email": "ana@email.com",
+  "senha": "senha-segura-123"
+}
+
+### Transferir para outro usuário, pelo e-mail
+POST {{baseUrl}}/api/transacoes/transferencias
+Authorization: Bearer {{login.response.body.token}}
+Idempotency-Key: {{$guid}}
+Content-Type: application/json
+
+{
+  "emailDestinatario": "ana@email.com",
+  "valor": 50.00,
+  "descricao": "Almoço"
+}
+
+### Saldo insuficiente: 422 saldo-insuficiente (nada é gravado)
+POST {{baseUrl}}/api/transacoes/transferencias
+Authorization: Bearer {{login.response.body.token}}
+Idempotency-Key: {{$guid}}
+Content-Type: application/json
+
+{
+  "emailDestinatario": "ana@email.com",
+  "valor": 999999.00
+}
+
+### Para si mesmo: 422 transferencia-para-si-mesmo
+POST {{baseUrl}}/api/transacoes/transferencias
+Authorization: Bearer {{login.response.body.token}}
+Idempotency-Key: {{$guid}}
+Content-Type: application/json
+
+{
+  "emailDestinatario": "pedro@email.com",
+  "valor": 1.00
 }

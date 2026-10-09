@@ -33,4 +33,4 @@ O depósito é a primeira operação que altera um saldo. As decisões tomadas a
 - ✅ Saldo exato, auditável e protegido por constraints no próprio banco.
 - ✅ Testes provam o rollback entre módulos e a ausência de perda em depósitos simultâneos.
 - ⚠️ O bloqueio serializa as operações na mesma carteira. Para uma carteira com volume altíssimo (ex.: a de um grande lojista), seria preciso outra estratégia, como lançamentos sem saldo consolidado. Não é o caso deste projeto.
-- ⚠️ Transferências bloqueiam duas carteiras. Para evitar *deadlock*, os bloqueios devem ser obtidos sempre na mesma ordem (a ser feito na transferência).
+- ⚠️ Transferências bloqueiam duas carteiras. Para evitar *deadlock*, os bloqueios são obtidos sempre na mesma ordem (ver [ADR 0004](0004-transferencia-entre-carteiras.md)).
