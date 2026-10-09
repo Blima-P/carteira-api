@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.braga</groupId>
 	<artifactId>carteira-api</artifactId>
-	<version>0.1.0</version>
+	<version>0.2.0-SNAPSHOT</version>
 	<name>carteira-api</name>
 	<description>API de Carteira Digital com transacoes ACID, idempotencia e JWT</description>
 
