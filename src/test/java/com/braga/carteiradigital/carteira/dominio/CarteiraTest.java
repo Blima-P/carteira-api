@@ -68,6 +68,44 @@ class CarteiraTest {
                 .hasMessageContaining("negativo");
     }
 
+    @Test
+    void debitoDeveSubtrairDoSaldoEGerarLancamento() {
+        Carteira carteira = comSaldo("100.00");
+
+        Movimentacao movimentacao = carteira.debitar(Dinheiro.de("30.25"), transacaoId, relogioEm(DEPOIS));
+
+        assertThat(movimentacao.carteira().saldo()).isEqualTo(Dinheiro.de("69.75"));
+        assertThat(movimentacao.carteira().atualizadoEm()).isEqualTo(DEPOIS);
+        assertThat(movimentacao.lancamento()).isEqualTo(new Lancamento(transacaoId, carteira.id(),
+                Lancamento.Natureza.DEBITO, Dinheiro.de("30.25"), Dinheiro.de("69.75"), DEPOIS));
+    }
+
+    @Test
+    void devePermitirDebitarOSaldoInteiro() {
+        Movimentacao movimentacao = comSaldo("50.00").debitar(Dinheiro.de("50.00"), transacaoId, relogioEm(DEPOIS));
+
+        assertThat(movimentacao.carteira().saldo()).isEqualTo(Dinheiro.ZERO);
+    }
+
+    @Test
+    void deveRecusarDebitoMaiorQueOSaldo() {
+        Carteira carteira = comSaldo("50.00");
+
+        assertThatThrownBy(() -> carteira.debitar(Dinheiro.de("50.01"), transacaoId, relogioEm(DEPOIS)))
+                .isInstanceOf(SaldoInsuficienteException.class)
+                .extracting("codigo").isEqualTo("saldo-insuficiente");
+    }
+
+    @Test
+    void deveRecusarDebitoZeroOuNegativo() {
+        Carteira carteira = comSaldo("100.00");
+
+        assertThatThrownBy(() -> carteira.debitar(Dinheiro.ZERO, transacaoId, relogioEm(DEPOIS)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> carteira.debitar(Dinheiro.de("-1.00"), transacaoId, relogioEm(DEPOIS)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     private Carteira comSaldo(String saldo) {
         return new Carteira(UUID.randomUUID(), usuarioId, Dinheiro.de(saldo), CRIACAO, CRIACAO);
     }

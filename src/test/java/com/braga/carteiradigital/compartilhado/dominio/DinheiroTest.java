@@ -22,6 +22,13 @@ class DinheiroTest {
     }
 
     @Test
+    void deveSubtrairSemErroDeArredondamento() {
+        // Com double: 0.3 - 0.1 = 0.19999999999999998
+        assertThat(Dinheiro.de("0.30").subtrair(Dinheiro.de("0.10"))).isEqualTo(Dinheiro.de("0.20"));
+        assertThat(Dinheiro.de("1.00").subtrair(Dinheiro.de("1.01"))).isEqualTo(Dinheiro.de("-0.01"));
+    }
+
+    @Test
     void deveRecusarFracaoDeCentavoEmVezDeArredondar() {
         assertThatThrownBy(() -> Dinheiro.de("10.001"))
                 .isInstanceOf(IllegalArgumentException.class)
