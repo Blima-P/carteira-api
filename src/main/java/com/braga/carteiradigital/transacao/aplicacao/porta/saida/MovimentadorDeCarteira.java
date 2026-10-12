@@ -14,4 +14,7 @@ public interface MovimentadorDeCarteira {
 
     /** Move o valor entre as carteiras e devolve o saldo atualizado da origem. */
     Dinheiro transferir(UUID carteiraOrigemId, UUID carteiraDestinoId, Dinheiro valor, UUID transacaoId);
+
+    /** Saldo da carteira logo após a transação, para refazer o comprovante de um reenvio. */
+    Dinheiro saldoAposTransacao(UUID carteiraId, UUID transacaoId);
 }

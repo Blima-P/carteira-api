@@ -7,6 +7,8 @@ import java.util.UUID;
 import org.hibernate.annotations.Immutable;
 import org.springframework.data.domain.Persistable;
 
+import com.braga.carteiradigital.compartilhado.dominio.Dinheiro;
+import com.braga.carteiradigital.transacao.dominio.ChaveIdempotencia;
 import com.braga.carteiradigital.transacao.dominio.TipoTransacao;
 import com.braga.carteiradigital.transacao.dominio.Transacao;
 
@@ -75,6 +77,11 @@ class TransacaoEntity implements Persistable<UUID> {
         entidade.hashRequisicao = transacao.hashRequisicao();
         entidade.criadoEm = transacao.criadoEm();
         return entidade;
+    }
+
+    Transacao paraDominio() {
+        return new Transacao(id, tipo, new Dinheiro(valor), carteiraOrigemId, carteiraDestinoId, descricao,
+                iniciadaPor, new ChaveIdempotencia(chaveIdempotencia), hashRequisicao, criadoEm);
     }
 
     @Override

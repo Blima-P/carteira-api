@@ -52,6 +52,16 @@ public record Transacao(UUID id, TipoTransacao tipo, Dinheiro valor, UUID cartei
                 chave, relogio);
     }
 
+    /** A carteira de quem fez o pedido: a origem, na transferência, ou a própria carteira, no depósito. */
+    public UUID carteiraDeQuemIniciou() {
+        return tipo == TipoTransacao.TRANSFERENCIA ? carteiraOrigemId : carteiraDestinoId;
+    }
+
+    /** Se as duas transações vêm do mesmo pedido do cliente (mesmo tipo, destino, valor e descrição). */
+    public boolean ehMesmoPedidoQue(Transacao outra) {
+        return hashRequisicao.equals(outra.hashRequisicao);
+    }
+
     private static Transacao criar(TipoTransacao tipo, UUID carteiraOrigemId, UUID carteiraDestinoId, Dinheiro valor,
             String descricao, UUID iniciadaPor, ChaveIdempotencia chave, Clock relogio) {
         String descricaoNormalizada = normalizarDescricao(descricao);
