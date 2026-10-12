@@ -28,7 +28,7 @@ Content-Type: application/json
   "descricao": "Primeiro depósito"
 }
 
-### Mesma chave duas vezes: envie duas vezes. A segunda retorna 409 e não deposita de novo
+### Reenvio: envie duas vezes. A segunda devolve o MESMO comprovante (cabeçalho Idempotent-Replayed: true) e não deposita de novo
 POST {{baseUrl}}/api/transacoes/depositos
 Authorization: Bearer {{login.response.body.token}}
 Idempotency-Key: deposito-teste-repetido
@@ -36,6 +36,16 @@ Content-Type: application/json
 
 {
   "valor": 10.00
+}
+
+### Mesma chave com outro valor (rode depois do bloco acima): 422 chave-idempotencia-reutilizada
+POST {{baseUrl}}/api/transacoes/depositos
+Authorization: Bearer {{login.response.body.token}}
+Idempotency-Key: deposito-teste-repetido
+Content-Type: application/json
+
+{
+  "valor": 99.00
 }
 
 ### Valor inválido (3 casas decimais): 400 dados-invalidos

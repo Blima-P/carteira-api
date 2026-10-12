@@ -26,7 +26,7 @@ As decisões de [ADR 0003](0003-movimentacao-de-saldo.md) (dinheiro, livro-razã
 
 5. **Regras de negócio com `422`.** Destinatário inexistente (`destinatario-nao-encontrado`), transferência para si mesmo (`transferencia-para-si-mesmo`) e saldo insuficiente (`saldo-insuficiente`). Dados malformados continuam com `400 dados-invalidos`.
 
-6. **Transferência recusada não consome a `Idempotency-Key`.** Como a recusa desfaz a transação inteira, a chave não fica gravada. O cliente pode reenviar a mesma chave depois de depositar. O tratamento do reenvio (devolver a resposta original) fica para a etapa de idempotência.
+6. **Transferência recusada não consome a `Idempotency-Key`.** Como a recusa desfaz a transação inteira, a chave não fica gravada. O cliente pode reenviar a mesma chave depois de depositar. O tratamento do reenvio (devolver a resposta original) fica para a etapa de idempotência (feito no [ADR 0005](0005-idempotencia-com-reenvio.md)).
 
 7. **O comprovante mostra só o saldo da origem.** O saldo do destinatário não é exposto a quem envia.
 

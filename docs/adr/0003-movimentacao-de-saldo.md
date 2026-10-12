@@ -26,7 +26,7 @@ O depósito é a primeira operação que altera um saldo. As decisões tomadas a
 
 6. **Só o módulo Carteira altera saldos.** O módulo Transação usa a API pública `CarteiraApi`, por meio de uma porta própria (`MovimentadorDeCarteira`). `creditar` usa `Propagation.MANDATORY`: falha se não houver uma transação aberta por quem chama, o que impede um crédito solto, sem a operação que o originou.
 
-7. **`Idempotency-Key` obrigatória desde o primeiro endpoint financeiro.** A chave é única por usuário (constraint no banco). Por enquanto, uma chave repetida retorna `409`. O reenvio que devolve a resposta original fica para a etapa de idempotência.
+7. **`Idempotency-Key` obrigatória desde o primeiro endpoint financeiro.** A chave é única por usuário (constraint no banco). Por enquanto, uma chave repetida retorna `409`. O reenvio que devolve a resposta original fica para a etapa de idempotência (feito no [ADR 0005](0005-idempotencia-com-reenvio.md)).
 
 ## Consequências
 
