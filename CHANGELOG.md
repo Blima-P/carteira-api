@@ -13,6 +13,12 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 - Novos erros `422`: `saldo-insuficiente`, `destinatario-nao-encontrado` e `transferencia-para-si-mesmo`.
 - `UsuarioApi`: API pública do módulo Usuário para buscar um usuário pelo e-mail.
 - Testes de concorrência: transferências simultâneas não gastam mais que o saldo e transferências cruzadas não causam *deadlock*.
+- **Reenvio idempotente**: reenviar uma operação com a mesma `Idempotency-Key` e os mesmos dados devolve o comprovante original (`201`, mesmo corpo, cabeçalho `Idempotent-Replayed: true`), sem movimentar saldo de novo.
+- Novo erro `422 chave-idempotencia-reutilizada`: a mesma chave enviada com dados diferentes.
+
+### Alterado
+
+- Uma chave repetida não retorna mais `409 chave-idempotencia-ja-utilizada`. O `409` agora é `chave-idempotencia-em-uso` e só ocorre quando duas requisições com a mesma chave chegam ao mesmo tempo; basta reenviar.
 
 ## [0.1.0] - 2026-10-08
 

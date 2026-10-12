@@ -178,15 +178,59 @@ class TransferenciaIntegracaoTest extends IntegracaoTestBase {
     }
 
     @Test
-    void chaveRepetidaNaoDeveTransferirDuasVezes() {
-        assertThat(transferir(tokenAna, "bruno@email.com", "10.00", null, "chave-1")).hasStatus(HttpStatus.CREATED);
+    void reenvioComAMesmaChaveDeveDevolverOComprovanteOriginalSemTransferirDeNovo() {
+        MvcTestResult primeira = transferir(tokenAna, "bruno@email.com", "10.00", null, "chave-1");
+        assertThat(primeira).hasStatus(HttpStatus.CREATED);
 
         assertThat(transferir(tokenAna, "bruno@email.com", "10.00", null, "chave-1"))
-                .hasStatus(HttpStatus.CONFLICT)
-                .bodyJson().extractingPath("$.codigo").isEqualTo("chave-idempotencia-ja-utilizada");
+                .hasStatus(HttpStatus.CREATED)
+                .satisfies(reenvio -> assertThat(reenvio).headers().hasValue("Idempotent-Replayed", "true"))
+                .bodyText().isEqualTo(corpo(primeira));
 
         assertThat(saldo(tokenAna)).isEqualTo("90.00");
         assertThat(saldo(tokenBruno)).isEqualTo("10.00");
+    }
+
+    @Test
+    void reenvioDeveMostrarOSaldoDaOrigemLogoAposATransferenciaOriginal() {
+        transferir(tokenAna, "bruno@email.com", "30.00", null, "chave-1");
+        depositar(tokenAna, "50.00");
+
+        // O saldo agora é 120.00, mas o comprovante original dizia 70.00
+        assertThat(transferir(tokenAna, "bruno@email.com", "30.00", null, "chave-1"))
+                .bodyText().contains("\"saldoAtual\":70.00");
+    }
+
+    @Test
+    void reenvioNaoDeveDependerDoSaldoAtual() {
+        transferir(tokenAna, "bruno@email.com", "100.00", null, "chave-1");
+
+        // Sem saldo para uma nova transferência, mas o reenvio não movimenta nada
+        assertThat(transferir(tokenAna, "bruno@email.com", "100.00", null, "chave-1"))
+                .hasStatus(HttpStatus.CREATED)
+                .headers().hasValue("Idempotent-Replayed", "true");
+        assertThat(saldo(tokenBruno)).isEqualTo("100.00");
+    }
+
+    @Test
+    void chaveReutilizadaParaOutroDestinatarioDeveSerRecusada() {
+        novoUsuarioComToken("carla@email.com");
+        transferir(tokenAna, "bruno@email.com", "10.00", null, "chave-1");
+
+        assertThat(transferir(tokenAna, "carla@email.com", "10.00", null, "chave-1"))
+                .hasStatus(HttpStatus.UNPROCESSABLE_CONTENT)
+                .bodyJson().extractingPath("$.codigo").isEqualTo("chave-idempotencia-reutilizada");
+
+        assertThat(saldo(tokenAna)).isEqualTo("90.00");
+    }
+
+    @Test
+    void chaveDeUmDepositoNaoPodeSerUsadaEmUmaTransferencia() {
+        depositar(tokenAna, "10.00", "chave-1");
+
+        assertThat(transferir(tokenAna, "bruno@email.com", "10.00", null, "chave-1"))
+                .hasStatus(HttpStatus.UNPROCESSABLE_CONTENT)
+                .bodyJson().extractingPath("$.codigo").isEqualTo("chave-idempotencia-reutilizada");
     }
 
     @Test
@@ -265,9 +309,13 @@ class TransferenciaIntegracaoTest extends IntegracaoTestBase {
     }
 
     private void depositar(String token, String valor) {
+        depositar(token, valor, UUID.randomUUID().toString());
+    }
+
+    private void depositar(String token, String valor, String chave) {
         assertThat(mvc.post().uri("/api/transacoes/depositos")
                 .header("Authorization", "Bearer " + token)
-                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .header("Idempotency-Key", chave)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"valor\": %s}".formatted(valor)))
                 .hasStatus(HttpStatus.CREATED);
@@ -291,8 +339,11 @@ class TransferenciaIntegracaoTest extends IntegracaoTestBase {
         MvcTestResult resposta = mvc.get().uri("/api/carteiras/minha").header("Authorization", "Bearer " + token).exchange();
         assertThat(resposta).hasStatusOk();
         // Lido do texto da resposta para não passar por double
-        String json = new String(resposta.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
-        return json.replaceAll(".*\"saldo\":([0-9.]+).*", "$1");
+        return corpo(resposta).replaceAll(".*\"saldo\":([0-9.]+).*", "$1");
+    }
+
+    private static String corpo(MvcTestResult resposta) {
+        return new String(resposta.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
     }
 
     private UUID usuarioId(String email) {

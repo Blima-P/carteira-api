@@ -35,4 +35,9 @@ class MovimentadorDeCarteiraAdapter implements MovimentadorDeCarteira {
     public Dinheiro transferir(UUID carteiraOrigemId, UUID carteiraDestinoId, Dinheiro valor, UUID transacaoId) {
         return carteiraApi.transferir(carteiraOrigemId, carteiraDestinoId, valor, transacaoId);
     }
+
+    @Override
+    public Dinheiro saldoAposTransacao(UUID carteiraId, UUID transacaoId) {
+        return carteiraApi.saldoAposTransacao(carteiraId, transacaoId);
+    }
 }

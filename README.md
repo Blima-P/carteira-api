@@ -29,7 +29,7 @@ Histórico de versões no [CHANGELOG](CHANGELOG.md).
 - [x] Dia 2 — Cadastro e login com JWT
 - [x] Dia 3 — Consulta de saldo e depósito
 - [x] Dia 4 — Transferência atômica (ACID + lock pessimista)
-- [ ] Dia 5 — Idempotência (`Idempotency-Key`)
+- [x] Dia 5 — Idempotência (`Idempotency-Key`)
 - [ ] Dia 6 — Extrato paginado
 - [ ] Dia 7 — Testes de concorrência e rollback
 - [ ] Dia 8 — Dockerfile + deploy simulado em homolog/produção (GitHub Actions + GHCR)
@@ -111,7 +111,7 @@ TOKEN=$(curl -s -X POST localhost:8080/api/auth/login -H "Content-Type: applicat
 
 curl localhost:8080/api/usuarios/eu -H "Authorization: Bearer $TOKEN"
 
-# Depósito: gere uma Idempotency-Key nova para cada operação (reenviar a mesma não deposita duas vezes)
+# Depósito: gere uma Idempotency-Key nova para cada operação
 curl -X POST localhost:8080/api/transacoes/depositos -H "Authorization: Bearer $TOKEN" \
   -H "Idempotency-Key: $(uuidgen)" -H "Content-Type: application/json" \
   -d '{"valor": 150.50, "descricao": "Primeiro depósito"}'
@@ -124,13 +124,24 @@ curl -X POST localhost:8080/api/transacoes/transferencias -H "Authorization: Bea
 curl localhost:8080/api/carteiras/minha -H "Authorization: Bearer $TOKEN"
 ```
 
+### Idempotência
+
+Se a conexão cair, o cliente pode reenviar a operação com a **mesma** `Idempotency-Key` sem risco de pagar duas vezes:
+
+| Situação                                         | Resposta                                                                 |
+|--------------------------------------------------|--------------------------------------------------------------------------|
+| Chave nova                                       | `201` + comprovante (a operação é feita)                                 |
+| Mesma chave, mesmos dados (reenvio)              | `201` + o **mesmo** comprovante e `Idempotent-Replayed: true`; nada é movimentado |
+| Mesma chave, dados diferentes                    | `422 chave-idempotencia-reutilizada`                                     |
+| Mesma chave em duas requisições ao mesmo tempo   | Uma é feita; a outra recebe `409 chave-idempotencia-em-uso` e pode reenviar |
+
 Erros seguem o padrão **Problem Details (RFC 9457)**, sempre com um `codigo` estável:
 
 ```json
 { "status": 409, "codigo": "email-ja-cadastrado", "detail": "Já existe um usuário com este e-mail." }
 ```
 
-Decisões de segurança em [ADR 0002](docs/adr/0002-autenticacao-jwt.md). Decisões sobre dinheiro, livro-razão e concorrência em [ADR 0003](docs/adr/0003-movimentacao-de-saldo.md). Decisões da transferência em [ADR 0004](docs/adr/0004-transferencia-entre-carteiras.md).
+Decisões de segurança em [ADR 0002](docs/adr/0002-autenticacao-jwt.md). Decisões sobre dinheiro, livro-razão e concorrência em [ADR 0003](docs/adr/0003-movimentacao-de-saldo.md). Decisões da transferência em [ADR 0004](docs/adr/0004-transferencia-entre-carteiras.md) e da idempotência em [ADR 0005](docs/adr/0005-idempotencia-com-reenvio.md).
 
 ## Modelo de dados
 
@@ -162,6 +173,7 @@ Destaques:
 - `AtomicidadeIntegracaoTest` prova o rollback entre módulos: uma falha no meio do depósito ou da transferência (ex.: no crédito do destinatário) desfaz tudo, inclusive o débito.
 - `DepositoIntegracaoTest` dispara depósitos simultâneos na mesma carteira para provar que nenhum se perde.
 - `TransferenciaIntegracaoTest` dispara 15 transferências de R$ 10 ao mesmo tempo com saldo de R$ 100: exatamente 5 são recusadas e o saldo nunca fica negativo. Também dispara transferências cruzadas (A→B e B→A) simultâneas para provar que não há *deadlock*.
+- `DepositoIntegracaoTest` também dispara 8 requisições simultâneas com a **mesma** `Idempotency-Key`: o depósito acontece uma única vez.
 
 ## Fluxo de desenvolvimento
 
