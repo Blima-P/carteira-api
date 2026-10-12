@@ -74,6 +74,13 @@ class MovimentarCarteiraService implements CarteiraApi {
         return debito.carteira().saldo();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Dinheiro saldoAposTransacao(UUID carteiraId, UUID transacaoId) {
+        return lancamentos.buscarSaldoApos(carteiraId, transacaoId).orElseThrow(() -> new IllegalStateException(
+                "a transação " + transacaoId + " não tem lançamento na carteira " + carteiraId));
+    }
+
     private Carteira bloquear(UUID carteiraId) {
         return carteiras.buscarPorIdComBloqueio(carteiraId).orElseThrow(CarteiraNaoEncontradaException::new);
     }

@@ -28,4 +28,10 @@ public interface CarteiraApi {
      * <p>Lança um erro de negócio {@code saldo-insuficiente} (422) se a origem não tiver saldo.
      */
     Dinheiro transferir(UUID carteiraOrigemId, UUID carteiraDestinoId, Dinheiro valor, UUID transacaoId);
+
+    /**
+     * Saldo da carteira logo após a transação, lido do livro-razão. Permite refazer o comprovante de
+     * uma operação já concluída, mesmo que o saldo tenha mudado depois.
+     */
+    Dinheiro saldoAposTransacao(UUID carteiraId, UUID transacaoId);
 }
