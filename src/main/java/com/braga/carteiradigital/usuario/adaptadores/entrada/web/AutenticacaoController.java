@@ -11,10 +11,12 @@ import com.braga.carteiradigital.usuario.aplicacao.porta.entrada.AutenticarUsuar
 import com.braga.carteiradigital.usuario.aplicacao.porta.entrada.CadastrarUsuarioUseCase;
 
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 
 /** Endpoints públicos (não exigem token). */
 @RestController
 @RequestMapping("/api/auth")
+@SecurityRequirements
 class AutenticacaoController {
 
     private final CadastrarUsuarioUseCase cadastrarUsuario;
