@@ -2,7 +2,9 @@
 
 [![CI](https://github.com/Blima-P/carteira-api/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Blima-P/carteira-api/actions/workflows/ci.yml)
 
-API REST de carteira digital: usuários podem **depositar**, **transferir saldo entre si** e **consultar o extrato**.
+API REST de carteira digital: usuários podem **depositar**, **transferir saldo entre si** e **consultar o saldo**.
+
+O extrato paginado está planejado; ainda não há endpoint de consulta de extrato.
 
 O foco do projeto é demonstrar requisitos essenciais de sistemas financeiros:
 
@@ -18,6 +20,8 @@ O foco do projeto é demonstrar requisitos essenciais de sistemas financeiros:
 - Spring Security (JWT)
 - Docker / Docker Compose
 - JUnit 5 + testes de integração
+- OpenAPI / Swagger UI (habilitado no modo local)
+- JaCoCo (relatórios de cobertura)
 
 ## Roadmap
 
@@ -31,9 +35,11 @@ Histórico de versões no [CHANGELOG](CHANGELOG.md).
 - [x] Dia 4 — Transferência atômica (ACID + lock pessimista)
 - [x] Dia 5 — Idempotência (`Idempotency-Key`)
 - [ ] Dia 6 — Extrato paginado
-- [ ] Dia 7 — Testes de concorrência e rollback
+- [x] Dia 7 — Testes de concorrência e rollback
 - [ ] Dia 8 — Dockerfile + deploy simulado em homolog/produção (GitHub Actions + GHCR)
-- [ ] Dia 9 — Documentação final + Swagger
+- [x] Swagger / OpenAPI com autenticação JWT documentada
+- [x] Relatório de cobertura com JaCoCo
+- [ ] Dia 9 — Documentação final e revisão do roadmap
 
 ## Arquitetura
 
@@ -77,8 +83,26 @@ Sobe a API com um PostgreSQL 18 embarcado na porta `5433`. Os dados ficam em `ta
 
 - Health: <http://localhost:8080/actuator/health>
 - Migrations aplicadas: <http://localhost:8080/actuator/flyway>
+- Swagger UI: <http://localhost:8080/swagger-ui/index.html>
+- OpenAPI: <http://localhost:8080/v3/api-docs>
 
 Encerre com `Ctrl+C`. Para zerar o banco, rode `./mvnw clean`.
+
+No Windows (PowerShell), use `.\mvnw.cmd spring-boot:test-run`.
+
+### Demonstração local pelo Swagger
+
+1. Inicie a aplicação no modo dev e abra o Swagger UI.
+2. Use `POST /api/auth/cadastro` para cadastrar dois usuários fictícios.
+3. Faça login e copie o campo `token`; clique em **Authorize** e cole apenas o token.
+4. Faça um depósito e uma transferência usando uma `Idempotency-Key` nova para cada operação.
+5. Consulte `/api/carteiras/minha` e reenvie uma operação com a mesma chave e os mesmos dados: o comprovante é reapresentado sem duplicar a movimentação.
+
+A demonstração é educacional e usa saldo fictício; não processa dinheiro real.
+Não há deploy público neste momento.
+Fora do modo local, Swagger e OpenAPI ficam desabilitados por padrão.
+Habilite ambos explicitamente com `API_DOCS_ENABLED=true` apenas quando quiser
+expor a documentação nesse ambiente; isso não libera as rotas de negócio protegidas por JWT.
 
 ### Com Docker
 
@@ -167,6 +191,10 @@ Os testes de integração usam um PostgreSQL real embarcado (não precisam de Do
 ```
 
 O build também gera diagramas dos módulos em `target/spring-modulith-docs`.
+O JaCoCo gera cobertura em `target/site/jacoco/index.html` e
+`target/site/jacoco/jacoco.xml`. Os percentuais são calculados sobre a execução
+dos testes; não há badge com um número fixo nem porcentagem presumida.
+No PowerShell, execute `.\mvnw.cmd verify`.
 
 Destaques:
 

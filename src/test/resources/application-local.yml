@@ -3,6 +3,12 @@ seguranca:
   jwt:
     segredo: segredo-apenas-para-desenvolvimento-local-nunca-use-em-producao
 
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
 management:
   endpoints:
     web:

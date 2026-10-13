@@ -8,6 +8,9 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ### Adicionado
 
+- Documentação OpenAPI e Swagger UI no modo local, com autenticação JWT e endpoints públicos de cadastro/login corretamente identificados. Fora do modo local, exige `API_DOCS_ENABLED=true`.
+- Relatórios HTML e XML de cobertura gerados pelo JaCoCo na fase `verify`.
+- Testes de integração da documentação habilitada e desabilitada, preservando a proteção das rotas de negócio.
 - `POST /api/transacoes/transferencias`: transferência para outro usuário, identificado pelo e-mail, com `Idempotency-Key` obrigatória. O débito, o crédito, a transação e os dois lançamentos são gravados **na mesma transação de banco**.
 - Bloqueio das duas carteiras **sempre na mesma ordem**, para evitar *deadlock* em transferências cruzadas simultâneas.
 - Novos erros `422`: `saldo-insuficiente`, `destinatario-nao-encontrado` e `transferencia-para-si-mesmo`.
