@@ -1,6 +1,8 @@
 package com.braga.carteiradigital.transacao.adaptadores.saida.usuario;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.stereotype.Component;
@@ -21,5 +23,10 @@ class BuscadorDeUsuariosAdapter implements BuscadorDeUsuarios {
     @Override
     public Optional<UUID> idDoUsuarioPorEmail(String email) {
         return usuarioApi.idDoUsuarioPorEmail(email);
+    }
+
+    @Override
+    public Map<UUID, String> nomesPorId(Set<UUID> ids) {
+        return usuarioApi.nomesPorId(ids);
     }
 }

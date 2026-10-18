@@ -1,6 +1,8 @@
 package com.braga.carteiradigital.transacao.adaptadores.saida.persistencia;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -39,5 +41,10 @@ class TransacaoPersistenceAdapter implements TransacaoRepository {
     @Override
     public Optional<Transacao> buscarPorChave(UUID iniciadaPor, ChaveIdempotencia chave) {
         return jpa.findByIniciadaPorAndChaveIdempotencia(iniciadaPor, chave.valor()).map(TransacaoEntity::paraDominio);
+    }
+
+    @Override
+    public List<Transacao> buscarPorIds(Set<UUID> ids) {
+        return jpa.findAllById(ids).stream().map(TransacaoEntity::paraDominio).toList();
     }
 }
