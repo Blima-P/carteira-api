@@ -18,6 +18,9 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 - Testes de concorrência: transferências simultâneas não gastam mais que o saldo e transferências cruzadas não causam *deadlock*.
 - **Reenvio idempotente**: reenviar uma operação com a mesma `Idempotency-Key` e os mesmos dados devolve o comprovante original (`201`, mesmo corpo, cabeçalho `Idempotent-Replayed: true`), sem movimentar saldo de novo.
 - Novo erro `422 chave-idempotencia-reutilizada`: a mesma chave enviada com dados diferentes.
+- `GET /api/transacoes/extrato`: extrato do mais recente para o mais antigo, com tipo, natureza (`CREDITO`/`DEBITO`), valor, saldo após cada operação, descrição e o nome da contraparte nas transferências.
+- **Paginação por cursor** (`tamanho` de 1 a 100, padrão 20, e `proximoCursor`): lançamentos novos não deslocam as páginas seguintes. Parâmetros inválidos retornam `400 dados-invalidos`.
+- `CarteiraApi` expõe a página do livro-razão e os donos das carteiras; `UsuarioApi` expõe os nomes por id.
 
 ### Alterado
 
