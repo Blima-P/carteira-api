@@ -1,6 +1,8 @@
 package com.braga.carteiradigital.transacao.aplicacao.porta.saida;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import com.braga.carteiradigital.transacao.dominio.ChaveIdempotencia;
@@ -12,4 +14,6 @@ public interface TransacaoRepository {
     void salvar(Transacao transacao);
 
     Optional<Transacao> buscarPorChave(UUID iniciadaPor, ChaveIdempotencia chave);
+
+    List<Transacao> buscarPorIds(Set<UUID> ids);
 }

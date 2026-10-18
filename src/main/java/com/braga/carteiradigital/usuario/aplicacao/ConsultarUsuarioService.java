@@ -1,7 +1,10 @@
 package com.braga.carteiradigital.usuario.aplicacao;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,5 +41,14 @@ class ConsultarUsuarioService implements ConsultarUsuarioUseCase, UsuarioApi {
             return Optional.empty();
         }
         return usuarios.buscarPorEmail(emailNormalizado).map(Usuario::id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<UUID, String> nomesPorId(Set<UUID> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return usuarios.buscarPorIds(ids).stream().collect(Collectors.toMap(Usuario::id, Usuario::nome));
     }
 }

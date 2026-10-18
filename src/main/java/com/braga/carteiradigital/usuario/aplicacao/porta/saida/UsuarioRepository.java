@@ -1,6 +1,8 @@
 package com.braga.carteiradigital.usuario.aplicacao.porta.saida;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import com.braga.carteiradigital.usuario.dominio.Email;
@@ -17,4 +19,6 @@ public interface UsuarioRepository {
     Optional<Usuario> buscarPorEmail(Email email);
 
     Optional<Usuario> buscarPorId(UUID id);
+
+    List<Usuario> buscarPorIds(Set<UUID> ids);
 }

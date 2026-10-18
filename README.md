@@ -2,9 +2,7 @@
 
 [![CI](https://github.com/Blima-P/carteira-api/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Blima-P/carteira-api/actions/workflows/ci.yml)
 
-API REST de carteira digital: usuários podem **depositar**, **transferir saldo entre si** e **consultar o saldo**.
-
-O extrato paginado está planejado; ainda não há endpoint de consulta de extrato.
+API REST de carteira digital: usuários podem **depositar**, **transferir saldo entre si** e **consultar o saldo e o extrato**.
 
 O foco do projeto é demonstrar requisitos essenciais de sistemas financeiros:
 
@@ -34,7 +32,7 @@ Histórico de versões no [CHANGELOG](CHANGELOG.md).
 - [x] Dia 3 — Consulta de saldo e depósito
 - [x] Dia 4 — Transferência atômica (ACID + lock pessimista)
 - [x] Dia 5 — Idempotência (`Idempotency-Key`)
-- [ ] Dia 6 — Extrato paginado
+- [x] Dia 6 — Extrato paginado (cursor)
 - [x] Dia 7 — Testes de concorrência e rollback
 - [ ] Dia 8 — Dockerfile + deploy simulado em homolog/produção (GitHub Actions + GHCR)
 - [x] Swagger / OpenAPI com autenticação JWT documentada
@@ -48,8 +46,8 @@ Histórico de versões no [CHANGELOG](CHANGELOG.md).
 ```text
 com.braga.carteiradigital
 ├── usuario        → cadastro e autenticação (JWT)
-├── carteira       → saldo, lançamentos e extrato (único módulo que altera saldo)
-├── transacao      → depósitos e transferências (ACID + idempotência)
+├── carteira       → saldo e livro-razão (único módulo que altera saldo)
+├── transacao      → depósitos, transferências (ACID + idempotência) e extrato
 └── compartilhado  → segurança, tratamento de erros (RFC 9457) e tipo base de erro de negócio
 ```
 
@@ -97,6 +95,7 @@ No Windows (PowerShell), use `.\mvnw.cmd spring-boot:test-run`.
 3. Faça login e copie o campo `token`; clique em **Authorize** e cole apenas o token.
 4. Faça um depósito e uma transferência usando uma `Idempotency-Key` nova para cada operação.
 5. Consulte `/api/carteiras/minha` e reenvie uma operação com a mesma chave e os mesmos dados: o comprovante é reapresentado sem duplicar a movimentação.
+6. Consulte `/api/transacoes/extrato`: a transferência aparece como `DEBITO` para quem enviou e `CREDITO` para quem recebeu.
 
 A demonstração é educacional e usa saldo fictício; não processa dinheiro real.
 Não há deploy público neste momento.
@@ -123,6 +122,7 @@ export JWT_SECRET="$(openssl rand -base64 48)"   # obrigatório fora do modo dev
 | GET    | `/api/carteiras/minha`      | Bearer JWT                      | Saldo da carteira do dono do token               |
 | POST   | `/api/transacoes/depositos` | Bearer JWT + `Idempotency-Key`  | Deposita na própria carteira (`201` + comprovante) |
 | POST   | `/api/transacoes/transferencias` | Bearer JWT + `Idempotency-Key` | Transfere para outro usuário, pelo e-mail (`201` + comprovante) |
+| GET    | `/api/transacoes/extrato`   | Bearer JWT                      | Extrato do mais recente para o mais antigo, paginado por cursor |
 
 Exemplos prontos em [`http/autenticacao.http`](http/autenticacao.http) e [`http/carteira.http`](http/carteira.http) (extensão **REST Client** do VS Code). Com `curl`:
 
@@ -146,6 +146,9 @@ curl -X POST localhost:8080/api/transacoes/transferencias -H "Authorization: Bea
   -d '{"emailDestinatario": "ana@email.com", "valor": 50.00, "descricao": "Almoço"}'
 
 curl localhost:8080/api/carteiras/minha -H "Authorization: Bearer $TOKEN"
+
+# Extrato: a próxima página usa o proximoCursor da resposta anterior (null na última página)
+curl "localhost:8080/api/transacoes/extrato?tamanho=20" -H "Authorization: Bearer $TOKEN"
 ```
 
 ### Idempotência
@@ -165,7 +168,7 @@ Erros seguem o padrão **Problem Details (RFC 9457)**, sempre com um `codigo` es
 { "status": 409, "codigo": "email-ja-cadastrado", "detail": "Já existe um usuário com este e-mail." }
 ```
 
-Decisões de segurança em [ADR 0002](docs/adr/0002-autenticacao-jwt.md). Decisões sobre dinheiro, livro-razão e concorrência em [ADR 0003](docs/adr/0003-movimentacao-de-saldo.md). Decisões da transferência em [ADR 0004](docs/adr/0004-transferencia-entre-carteiras.md) e da idempotência em [ADR 0005](docs/adr/0005-idempotencia-com-reenvio.md).
+Decisões de segurança em [ADR 0002](docs/adr/0002-autenticacao-jwt.md). Decisões sobre dinheiro, livro-razão e concorrência em [ADR 0003](docs/adr/0003-movimentacao-de-saldo.md). Decisões da transferência em [ADR 0004](docs/adr/0004-transferencia-entre-carteiras.md) e da idempotência em [ADR 0005](docs/adr/0005-idempotencia-com-reenvio.md). Decisões do extrato em [ADR 0006](docs/adr/0006-extrato-paginado-por-cursor.md).
 
 ## Modelo de dados
 

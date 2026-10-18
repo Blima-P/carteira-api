@@ -1,6 +1,8 @@
 package com.braga.carteiradigital.carteira.aplicacao.porta.saida;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import com.braga.carteiradigital.carteira.dominio.Carteira;
@@ -24,4 +26,7 @@ public interface CarteiraRepository {
      * bloqueio, pode estar desatualizada quando o bloqueio for obtido.
      */
     Optional<Carteira> buscarPorIdComBloqueio(UUID id);
+
+    /** O id do dono de cada carteira encontrada, indexado pelo id da carteira. */
+    Map<UUID, UUID> buscarDonos(Set<UUID> ids);
 }

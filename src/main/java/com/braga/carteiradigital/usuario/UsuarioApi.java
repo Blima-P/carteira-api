@@ -1,6 +1,8 @@
 package com.braga.carteiradigital.usuario;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /** API pública do módulo Usuário para os outros módulos. */
@@ -11,4 +13,7 @@ public interface UsuarioApi {
      * Vazio se nenhum usuário tiver esse e-mail ou se o e-mail for inválido.
      */
     Optional<UUID> idDoUsuarioPorEmail(String email);
+
+    /** O nome de cada usuário encontrado, indexado pelo id. Não expõe e-mail nem outros dados pessoais. */
+    Map<UUID, String> nomesPorId(Set<UUID> ids);
 }

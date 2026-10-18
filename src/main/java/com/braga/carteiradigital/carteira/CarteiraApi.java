@@ -1,5 +1,8 @@
 package com.braga.carteiradigital.carteira;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import com.braga.carteiradigital.compartilhado.dominio.Dinheiro;
@@ -34,4 +37,16 @@ public interface CarteiraApi {
      * uma operação já concluída, mesmo que o saldo tenha mudado depois.
      */
     Dinheiro saldoAposTransacao(UUID carteiraId, UUID transacaoId);
+
+    /**
+     * Até {@code limite} lançamentos da carteira, do mais recente para o mais antigo, começando logo
+     * depois de {@code depoisDe} (ou do mais recente, se for {@code null}).
+     *
+     * <p>Como a busca parte de uma posição, e não de um número de página, lançamentos novos não
+     * deslocam as próximas páginas de quem já está navegando.
+     */
+    List<LancamentoDaCarteira> lancamentos(UUID carteiraId, PosicaoNoLivroRazao depoisDe, int limite);
+
+    /** O id do usuário dono de cada carteira encontrada, indexado pelo id da carteira. */
+    Map<UUID, UUID> donosDasCarteiras(Set<UUID> carteiraIds);
 }
