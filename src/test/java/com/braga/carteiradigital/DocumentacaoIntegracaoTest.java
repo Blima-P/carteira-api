@@ -28,7 +28,7 @@ class DocumentacaoIntegracaoTest extends IntegracaoTestBase {
         Map<String, Object> rotas = lerJson(resposta, "$.paths");
         assertThat(rotas).containsOnlyKeys("/api/auth/cadastro", "/api/auth/login",
                 "/api/usuarios/eu", "/api/carteiras/minha",
-                "/api/transacoes/depositos", "/api/transacoes/transferencias");
+                "/api/transacoes/depositos", "/api/transacoes/transferencias", "/api/transacoes/extrato");
         String esquemaAutenticacao = lerJson(resposta, "$.components.securitySchemes.bearerAuth.scheme");
         assertThat(esquemaAutenticacao).isEqualTo("bearer");
         List<Map<String, Object>> seguranca = lerJson(resposta, "$.security");
