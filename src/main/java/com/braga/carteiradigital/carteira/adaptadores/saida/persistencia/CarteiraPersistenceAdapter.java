@@ -1,7 +1,10 @@
 package com.braga.carteiradigital.carteira.adaptadores.saida.persistencia;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
@@ -44,5 +47,12 @@ class CarteiraPersistenceAdapter implements CarteiraRepository {
     @Override
     public Optional<Carteira> buscarPorIdComBloqueio(UUID id) {
         return jpa.buscarPorIdComBloqueio(id).map(CarteiraEntity::paraDominio);
+    }
+
+    @Override
+    public Map<UUID, UUID> buscarDonos(Set<UUID> ids) {
+        return jpa.findAllById(ids).stream()
+                .map(CarteiraEntity::paraDominio)
+                .collect(Collectors.toMap(Carteira::id, Carteira::usuarioId));
     }
 }

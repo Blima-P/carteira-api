@@ -1,6 +1,9 @@
 package com.braga.carteiradigital.carteira.aplicacao;
 
 import java.time.Clock;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -8,6 +11,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.braga.carteiradigital.carteira.CarteiraApi;
+import com.braga.carteiradigital.carteira.LancamentoDaCarteira;
+import com.braga.carteiradigital.carteira.PosicaoNoLivroRazao;
 import com.braga.carteiradigital.carteira.aplicacao.porta.saida.CarteiraRepository;
 import com.braga.carteiradigital.carteira.aplicacao.porta.saida.LancamentoRepository;
 import com.braga.carteiradigital.carteira.dominio.Carteira;
@@ -79,6 +84,21 @@ class MovimentarCarteiraService implements CarteiraApi {
     public Dinheiro saldoAposTransacao(UUID carteiraId, UUID transacaoId) {
         return lancamentos.buscarSaldoApos(carteiraId, transacaoId).orElseThrow(() -> new IllegalStateException(
                 "a transação " + transacaoId + " não tem lançamento na carteira " + carteiraId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LancamentoDaCarteira> lancamentos(UUID carteiraId, PosicaoNoLivroRazao depoisDe, int limite) {
+        if (limite < 1) {
+            throw new IllegalArgumentException("limite deve ser positivo");
+        }
+        return lancamentos.buscarPagina(carteiraId, depoisDe, limite);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<UUID, UUID> donosDasCarteiras(Set<UUID> carteiraIds) {
+        return carteiraIds.isEmpty() ? Map.of() : carteiras.buscarDonos(carteiraIds);
     }
 
     private Carteira bloquear(UUID carteiraId) {
