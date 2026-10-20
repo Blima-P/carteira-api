@@ -6,6 +6,10 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+## [0.2.0] - 2026-10-20
+
+Transferências, reenvio idempotente, extrato e entrega contínua com Docker.
+
 ### Adicionado
 
 - Documentação OpenAPI e Swagger UI no modo local, com autenticação JWT e endpoints públicos de cadastro/login corretamente identificados. Fora do modo local, exige `API_DOCS_ENABLED=true`.
@@ -51,5 +55,6 @@ Primeira versão: cadastro, autenticação, saldo e depósito.
 - CI no GitHub Actions (build, testes e validação do título do PR), Dependabot e fluxo `develop` → `homolog` → `main` com branches protegidas.
 - ADRs 0001 a 0003 com as decisões de arquitetura.
 
-[Não lançado]: https://github.com/Blima-P/carteira-api/compare/v0.1.0...develop
+[Não lançado]: https://github.com/Blima-P/carteira-api/compare/v0.2.0...develop
+[0.2.0]: https://github.com/Blima-P/carteira-api/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Blima-P/carteira-api/releases/tag/v0.1.0
