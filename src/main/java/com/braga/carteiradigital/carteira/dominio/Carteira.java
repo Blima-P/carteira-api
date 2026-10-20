@@ -31,15 +31,33 @@ public record Carteira(UUID id, UUID usuarioId, Dinheiro saldo, Instant criadoEm
     }
 
     public Movimentacao creditar(Dinheiro valor, UUID transacaoId, Clock relogio) {
-        Objects.requireNonNull(transacaoId, "transação é obrigatória");
-        if (!valor.ehPositivo()) {
-            throw new IllegalArgumentException("valor do crédito deve ser positivo");
+        exigirValorPositivo(valor, "crédito");
+        return movimentar(Lancamento.Natureza.CREDITO, valor, saldo.somar(valor), transacaoId, relogio);
+    }
+
+    /** @throws SaldoInsuficienteException se o valor for maior que o saldo */
+    public Movimentacao debitar(Dinheiro valor, UUID transacaoId, Clock relogio) {
+        exigirValorPositivo(valor, "débito");
+        if (saldo.compareTo(valor) < 0) {
+            throw new SaldoInsuficienteException();
         }
+        return movimentar(Lancamento.Natureza.DEBITO, valor, saldo.subtrair(valor), transacaoId, relogio);
+    }
+
+    private Movimentacao movimentar(Lancamento.Natureza natureza, Dinheiro valor, Dinheiro novoSaldo,
+            UUID transacaoId, Clock relogio) {
+        Objects.requireNonNull(transacaoId, "transação é obrigatória");
         Instant agora = agora(relogio);
-        Carteira atualizada = new Carteira(id, usuarioId, saldo.somar(valor), criadoEm, agora);
-        Lancamento lancamento = new Lancamento(transacaoId, id, Lancamento.Natureza.CREDITO, valor,
-                atualizada.saldo(), agora);
+        Carteira atualizada = new Carteira(id, usuarioId, novoSaldo, criadoEm, agora);
+        Lancamento lancamento = new Lancamento(transacaoId, id, natureza, valor, novoSaldo, agora);
         return new Movimentacao(atualizada, lancamento);
+    }
+
+    private static void exigirValorPositivo(Dinheiro valor, String operacao) {
+        Objects.requireNonNull(valor, "valor é obrigatório");
+        if (!valor.ehPositivo()) {
+            throw new IllegalArgumentException("valor do " + operacao + " deve ser positivo");
+        }
     }
 
     // O PostgreSQL guarda microssegundos; truncar evita diferença entre o objeto e o banco

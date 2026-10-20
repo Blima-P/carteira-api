@@ -3,11 +3,13 @@ package com.braga.carteiradigital.transacao;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -25,6 +27,8 @@ import com.braga.carteiradigital.compartilhado.dominio.Dinheiro;
 import com.braga.carteiradigital.suporte.IntegracaoTestBase;
 import com.braga.carteiradigital.transacao.aplicacao.porta.entrada.DepositarUseCase;
 import com.braga.carteiradigital.transacao.dominio.ChaveIdempotencia;
+import com.braga.carteiradigital.transacao.dominio.ChaveIdempotenciaEmUsoException;
+import com.braga.carteiradigital.transacao.dominio.Comprovante;
 
 class DepositoIntegracaoTest extends IntegracaoTestBase {
 
@@ -135,14 +139,74 @@ class DepositoIntegracaoTest extends IntegracaoTestBase {
     }
 
     @Test
-    void chaveRepetidaNaoDeveDepositarDuasVezes() {
-        assertThat(depositar("10.00", null, "chave-1")).hasStatus(HttpStatus.CREATED);
+    void reenvioComAMesmaChaveDeveDevolverOComprovanteOriginalSemDepositarDeNovo() {
+        MvcTestResult primeira = depositar("10.00", "Mesada", "chave-1");
+        assertThat(primeira).hasStatus(HttpStatus.CREATED).headers().doesNotContainHeader("Idempotent-Replayed");
 
         // Ex.: o cliente não recebeu a primeira resposta (falha de rede) e reenviou a requisição
-        assertThat(depositar("10.00", null, "chave-1"))
-                .hasStatus(HttpStatus.CONFLICT)
-                .bodyJson().extractingPath("$.codigo").isEqualTo("chave-idempotencia-ja-utilizada");
+        assertThat(depositar("10.00", "Mesada", "chave-1"))
+                .hasStatus(HttpStatus.CREATED)
+                .satisfies(reenvio -> assertThat(reenvio).headers().hasValue("Idempotent-Replayed", "true"))
+                .bodyText().isEqualTo(corpo(primeira));
 
+        assertThat(jdbc.queryForObject("SELECT saldo FROM carteiras", BigDecimal.class)).isEqualByComparingTo("10.00");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM transacoes", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM lancamentos", Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void reenvioDeveMostrarOSaldoLogoAposODepositoOriginal() {
+        depositar("10.00", null, "chave-1");
+        depositar("5.00", null, "chave-2");
+
+        // O saldo agora é 15.00, mas o comprovante original dizia 10.00
+        assertThat(depositar("10.00", null, "chave-1")).bodyText().contains("\"saldoAtual\":10.00");
+    }
+
+    @Test
+    void chaveReutilizadaComOutrosDadosDeveSerRecusada() {
+        depositar("10.00", null, "chave-1");
+
+        assertThat(depositar("20.00", null, "chave-1"))
+                .hasStatus(HttpStatus.UNPROCESSABLE_CONTENT)
+                .bodyJson().extractingPath("$.codigo").isEqualTo("chave-idempotencia-reutilizada");
+
+        assertThat(jdbc.queryForObject("SELECT saldo FROM carteiras", BigDecimal.class)).isEqualByComparingTo("10.00");
+    }
+
+    @Test
+    void requisicoesSimultaneasComAMesmaChaveDevemDepositarUmaVezSo() throws Exception {
+        UUID usuarioId = jdbc.queryForObject("SELECT id FROM usuarios", UUID.class);
+        var comando = new DepositarUseCase.Comando(usuarioId, Dinheiro.de("10.00"), null,
+                new ChaveIdempotencia("mesma-chave"));
+        int quantidade = 8;
+        CountDownLatch largada = new CountDownLatch(1);
+        List<Comprovante> comprovantes = new ArrayList<>();
+        List<Throwable> erros = new ArrayList<>();
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(quantidade)) {
+            List<Future<Comprovante>> tarefas = new ArrayList<>();
+            for (int i = 0; i < quantidade; i++) {
+                tarefas.add(executor.submit(() -> {
+                    largada.await();
+                    return depositarUseCase.depositar(comando);
+                }));
+            }
+            largada.countDown();
+            for (Future<Comprovante> tarefa : tarefas) {
+                try {
+                    comprovantes.add(tarefa.get());
+                } catch (ExecutionException erro) {
+                    erros.add(erro.getCause());
+                }
+            }
+        }
+
+        // Quem chegou depois da gravação recebeu o reenvio; quem disputou a gravação recebeu 409 e pode reenviar
+        assertThat(erros).allMatch(ChaveIdempotenciaEmUsoException.class::isInstance);
+        assertThat(comprovantes).isNotEmpty().extracting(Comprovante::transacaoId).containsOnly(
+                comprovantes.getFirst().transacaoId());
+        assertThat(comprovantes).filteredOn(c -> !c.reenvio()).hasSize(1);
         assertThat(jdbc.queryForObject("SELECT saldo FROM carteiras", BigDecimal.class)).isEqualByComparingTo("10.00");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM lancamentos", Integer.class)).isEqualTo(1);
     }
@@ -209,5 +273,9 @@ class DepositoIntegracaoTest extends IntegracaoTestBase {
             requisicao.header("Idempotency-Key", chave);
         }
         return requisicao.exchange();
+    }
+
+    private static String corpo(MvcTestResult resposta) {
+        return new String(resposta.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
     }
 }

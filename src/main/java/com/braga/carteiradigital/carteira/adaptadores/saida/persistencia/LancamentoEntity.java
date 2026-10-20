@@ -6,7 +6,10 @@ import java.util.UUID;
 
 import org.hibernate.annotations.Immutable;
 
+import com.braga.carteiradigital.carteira.LancamentoDaCarteira;
+import com.braga.carteiradigital.carteira.PosicaoNoLivroRazao;
 import com.braga.carteiradigital.carteira.dominio.Lancamento;
+import com.braga.carteiradigital.compartilhado.dominio.Dinheiro;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -58,5 +61,10 @@ class LancamentoEntity {
         entidade.saldoApos = lancamento.saldoApos().quantia();
         entidade.criadoEm = lancamento.criadoEm();
         return entidade;
+    }
+
+    LancamentoDaCarteira paraLeitura() {
+        return new LancamentoDaCarteira(new PosicaoNoLivroRazao(criadoEm, id), transacaoId,
+                LancamentoDaCarteira.Natureza.valueOf(natureza.name()), new Dinheiro(valor), new Dinheiro(saldoApos));
     }
 }

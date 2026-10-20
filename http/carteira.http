@@ -1,4 +1,4 @@
-### Carteira e depósito. Suba a API antes: ./mvnw spring-boot:test-run
+### Carteira, depósito, transferência e extrato. Suba a API antes: ./mvnw spring-boot:test-run
 ### Rode primeiro o "Login" do arquivo autenticacao.http, ou o abaixo.
 
 @baseUrl = http://localhost:8080
@@ -28,7 +28,7 @@ Content-Type: application/json
   "descricao": "Primeiro depósito"
 }
 
-### Mesma chave duas vezes: envie duas vezes. A segunda retorna 409 e não deposita de novo
+### Reenvio: envie duas vezes. A segunda devolve o MESMO comprovante (cabeçalho Idempotent-Replayed: true) e não deposita de novo
 POST {{baseUrl}}/api/transacoes/depositos
 Authorization: Bearer {{login.response.body.token}}
 Idempotency-Key: deposito-teste-repetido
@@ -36,6 +36,16 @@ Content-Type: application/json
 
 {
   "valor": 10.00
+}
+
+### Mesma chave com outro valor (rode depois do bloco acima): 422 chave-idempotencia-reutilizada
+POST {{baseUrl}}/api/transacoes/depositos
+Authorization: Bearer {{login.response.body.token}}
+Idempotency-Key: deposito-teste-repetido
+Content-Type: application/json
+
+{
+  "valor": 99.00
 }
 
 ### Valor inválido (3 casas decimais): 400 dados-invalidos
@@ -47,3 +57,60 @@ Content-Type: application/json
 {
   "valor": 10.001
 }
+
+### Cadastrar uma destinatária para as transferências (rode uma vez; depois retorna 409)
+POST {{baseUrl}}/api/auth/cadastro
+Content-Type: application/json
+
+{
+  "nome": "Ana",
+  "email": "ana@email.com",
+  "senha": "senha-segura-123"
+}
+
+### Transferir para outro usuário, pelo e-mail
+POST {{baseUrl}}/api/transacoes/transferencias
+Authorization: Bearer {{login.response.body.token}}
+Idempotency-Key: {{$guid}}
+Content-Type: application/json
+
+{
+  "emailDestinatario": "ana@email.com",
+  "valor": 50.00,
+  "descricao": "Almoço"
+}
+
+### Saldo insuficiente: 422 saldo-insuficiente (nada é gravado)
+POST {{baseUrl}}/api/transacoes/transferencias
+Authorization: Bearer {{login.response.body.token}}
+Idempotency-Key: {{$guid}}
+Content-Type: application/json
+
+{
+  "emailDestinatario": "ana@email.com",
+  "valor": 999999.00
+}
+
+### Para si mesmo: 422 transferencia-para-si-mesmo
+POST {{baseUrl}}/api/transacoes/transferencias
+Authorization: Bearer {{login.response.body.token}}
+Idempotency-Key: {{$guid}}
+Content-Type: application/json
+
+{
+  "emailDestinatario": "pedro@email.com",
+  "valor": 1.00
+}
+
+### Extrato: primeira página (guarda a resposta na variável "extrato")
+# @name extrato
+GET {{baseUrl}}/api/transacoes/extrato?tamanho=2
+Authorization: Bearer {{login.response.body.token}}
+
+### Extrato: próxima página (rode depois do bloco acima; na última página, proximoCursor vem null)
+GET {{baseUrl}}/api/transacoes/extrato?tamanho=2&cursor={{extrato.response.body.proximoCursor}}
+Authorization: Bearer {{login.response.body.token}}
+
+### Tamanho fora do limite (1 a 100): 400 dados-invalidos
+GET {{baseUrl}}/api/transacoes/extrato?tamanho=101
+Authorization: Bearer {{login.response.body.token}}

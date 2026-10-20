@@ -2,6 +2,7 @@ package com.braga.carteiradigital;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
 
 import java.math.BigDecimal;
@@ -13,6 +14,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import com.braga.carteiradigital.carteira.aplicacao.porta.saida.CarteiraRepository;
 import com.braga.carteiradigital.carteira.aplicacao.porta.saida.LancamentoRepository;
+import com.braga.carteiradigital.carteira.dominio.Lancamento;
 import com.braga.carteiradigital.suporte.IntegracaoTestBase;
 
 /**
@@ -60,5 +62,33 @@ class AtomicidadeIntegracaoTest extends IntegracaoTestBase {
         // Quando o lançamento falhou, a transação e o novo saldo (10.00) já estavam gravados com flush
         assertThat(jdbc.queryForObject("SELECT count(*) FROM transacoes", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT saldo FROM carteiras", BigDecimal.class)).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    void transferenciaDeveSerDesfeitaSeOCreditoNoDestinoFalhar() {
+        String tokenAna = novoUsuarioComToken("ana@email.com");
+        novoUsuarioComToken("bruno@email.com");
+        assertThat(mvc.post().uri("/api/transacoes/depositos")
+                .header("Authorization", "Bearer " + tokenAna)
+                .header("Idempotency-Key", "deposito-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"valor\": 100.00}"))
+                .hasStatus(HttpStatus.CREATED);
+        doThrow(new IllegalStateException("falha simulada")).when(lancamentos)
+                .registrar(argThat(lancamento -> lancamento.natureza() == Lancamento.Natureza.CREDITO));
+
+        assertThat(mvc.post().uri("/api/transacoes/transferencias")
+                .header("Authorization", "Bearer " + tokenAna)
+                .header("Idempotency-Key", "transferencia-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"emailDestinatario\": \"bruno@email.com\", \"valor\": 30.00}"))
+                .hasStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+
+        // Quando o crédito falhou, o débito da Ana (70.00) e o lançamento dele já estavam gravados com flush
+        assertThat(jdbc.queryForList("SELECT saldo FROM carteiras ORDER BY saldo", BigDecimal.class))
+                .extracting(BigDecimal::toPlainString)
+                .containsExactly("0.00", "100.00");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM transacoes", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM lancamentos", Integer.class)).isEqualTo(1);
     }
 }
