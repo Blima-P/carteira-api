@@ -1,6 +1,8 @@
 package com.braga.carteiradigital.usuario.adaptadores.saida.persistencia;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -47,6 +49,11 @@ class UsuarioPersistenceAdapter implements UsuarioRepository {
     @Override
     public Optional<Usuario> buscarPorId(UUID id) {
         return jpa.findById(id).map(UsuarioEntity::paraDominio);
+    }
+
+    @Override
+    public List<Usuario> buscarPorIds(Set<UUID> ids) {
+        return jpa.findAllById(ids).stream().map(UsuarioEntity::paraDominio).toList();
     }
 
     private static boolean violou(DataIntegrityViolationException erro, String constraint) {

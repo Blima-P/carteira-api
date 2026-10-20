@@ -26,11 +26,11 @@ O depósito é a primeira operação que altera um saldo. As decisões tomadas a
 
 6. **Só o módulo Carteira altera saldos.** O módulo Transação usa a API pública `CarteiraApi`, por meio de uma porta própria (`MovimentadorDeCarteira`). `creditar` usa `Propagation.MANDATORY`: falha se não houver uma transação aberta por quem chama, o que impede um crédito solto, sem a operação que o originou.
 
-7. **`Idempotency-Key` obrigatória desde o primeiro endpoint financeiro.** A chave é única por usuário (constraint no banco). Por enquanto, uma chave repetida retorna `409`. O reenvio que devolve a resposta original fica para a etapa de idempotência.
+7. **`Idempotency-Key` obrigatória desde o primeiro endpoint financeiro.** A chave é única por usuário (constraint no banco). Por enquanto, uma chave repetida retorna `409`. O reenvio que devolve a resposta original fica para a etapa de idempotência (feito no [ADR 0005](0005-idempotencia-com-reenvio.md)).
 
 ## Consequências
 
 - ✅ Saldo exato, auditável e protegido por constraints no próprio banco.
 - ✅ Testes provam o rollback entre módulos e a ausência de perda em depósitos simultâneos.
 - ⚠️ O bloqueio serializa as operações na mesma carteira. Para uma carteira com volume altíssimo (ex.: a de um grande lojista), seria preciso outra estratégia, como lançamentos sem saldo consolidado. Não é o caso deste projeto.
-- ⚠️ Transferências bloqueiam duas carteiras. Para evitar *deadlock*, os bloqueios devem ser obtidos sempre na mesma ordem (a ser feito na transferência).
+- ⚠️ Transferências bloqueiam duas carteiras. Para evitar *deadlock*, os bloqueios são obtidos sempre na mesma ordem (ver [ADR 0004](0004-transferencia-entre-carteiras.md)).

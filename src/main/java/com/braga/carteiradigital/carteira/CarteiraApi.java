@@ -1,5 +1,8 @@
 package com.braga.carteiradigital.carteira;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import com.braga.carteiradigital.compartilhado.dominio.Dinheiro;
@@ -20,4 +23,30 @@ public interface CarteiraApi {
      * A carteira fica bloqueada até o fim da transação, então créditos simultâneos não se perdem.
      */
     Dinheiro creditar(UUID carteiraId, Dinheiro valor, UUID transacaoId);
+
+    /**
+     * Debita {@code valor} da origem e credita no destino, registrando os dois lançamentos,
+     * e devolve o novo saldo da origem. As duas carteiras ficam bloqueadas até o fim da transação.
+     *
+     * <p>Lança um erro de negócio {@code saldo-insuficiente} (422) se a origem não tiver saldo.
+     */
+    Dinheiro transferir(UUID carteiraOrigemId, UUID carteiraDestinoId, Dinheiro valor, UUID transacaoId);
+
+    /**
+     * Saldo da carteira logo após a transação, lido do livro-razão. Permite refazer o comprovante de
+     * uma operação já concluída, mesmo que o saldo tenha mudado depois.
+     */
+    Dinheiro saldoAposTransacao(UUID carteiraId, UUID transacaoId);
+
+    /**
+     * Até {@code limite} lançamentos da carteira, do mais recente para o mais antigo, começando logo
+     * depois de {@code depoisDe} (ou do mais recente, se for {@code null}).
+     *
+     * <p>Como a busca parte de uma posição, e não de um número de página, lançamentos novos não
+     * deslocam as próximas páginas de quem já está navegando.
+     */
+    List<LancamentoDaCarteira> lancamentos(UUID carteiraId, PosicaoNoLivroRazao depoisDe, int limite);
+
+    /** O id do usuário dono de cada carteira encontrada, indexado pelo id da carteira. */
+    Map<UUID, UUID> donosDasCarteiras(Set<UUID> carteiraIds);
 }

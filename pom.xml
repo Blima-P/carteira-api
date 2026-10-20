@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.braga</groupId>
 	<artifactId>carteira-api</artifactId>
-	<version>0.1.0</version>
+	<version>0.2.0</version>
 	<name>carteira-api</name>
 	<description>API de Carteira Digital com transacoes ACID, idempotencia e JWT</description>
 
@@ -18,6 +18,8 @@
 		<java.version>21</java.version>
 		<spring-modulith.version>2.1.1</spring-modulith.version>
 		<embedded-postgres.version>2.2.2</embedded-postgres.version>
+		<springdoc.version>3.1.1</springdoc.version>
+		<jacoco.version>0.8.15</jacoco.version>
 		<!-- Mesma versão do PostgreSQL usada no compose.yaml -->
 		<embedded-postgres-binaries.version>18.6.0</embedded-postgres-binaries.version>
 	</properties>
@@ -84,6 +86,11 @@
 			<groupId>org.springframework.modulith</groupId>
 			<artifactId>spring-modulith-starter-core</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>${springdoc.version}</version>
+		</dependency>
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -109,6 +116,25 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>${jacoco.version}</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>coverage-report</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>

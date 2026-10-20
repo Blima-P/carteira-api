@@ -1,5 +1,5 @@
 /**
- * <b>Módulo Transação</b>: depósitos e transferências, com atomicidade (ACID) e idempotência.
+ * <b>Módulo Transação</b>: depósitos e transferências, com atomicidade (ACID) e idempotência, e o extrato da carteira.
  *
  * <p>Tabela: {@code transacoes}.
  */

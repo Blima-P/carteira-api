@@ -43,10 +43,33 @@ public record Transacao(UUID id, TipoTransacao tipo, Dinheiro valor, UUID cartei
 
     public static Transacao deposito(UUID carteiraDestinoId, Dinheiro valor, String descricao, UUID iniciadaPor,
             ChaveIdempotencia chave, Clock relogio) {
+        return criar(TipoTransacao.DEPOSITO, null, carteiraDestinoId, valor, descricao, iniciadaPor, chave, relogio);
+    }
+
+    public static Transacao transferencia(UUID carteiraOrigemId, UUID carteiraDestinoId, Dinheiro valor,
+            String descricao, UUID iniciadaPor, ChaveIdempotencia chave, Clock relogio) {
+        return criar(TipoTransacao.TRANSFERENCIA, carteiraOrigemId, carteiraDestinoId, valor, descricao, iniciadaPor,
+                chave, relogio);
+    }
+
+    /** A carteira de quem fez o pedido: a origem, na transferência, ou a própria carteira, no depósito. */
+    public UUID carteiraDeQuemIniciou() {
+        return tipo == TipoTransacao.TRANSFERENCIA ? carteiraOrigemId : carteiraDestinoId;
+    }
+
+    /** Se as duas transações vêm do mesmo pedido do cliente (mesmo tipo, destino, valor e descrição). */
+    public boolean ehMesmoPedidoQue(Transacao outra) {
+        return hashRequisicao.equals(outra.hashRequisicao);
+    }
+
+    private static Transacao criar(TipoTransacao tipo, UUID carteiraOrigemId, UUID carteiraDestinoId, Dinheiro valor,
+            String descricao, UUID iniciadaPor, ChaveIdempotencia chave, Clock relogio) {
         String descricaoNormalizada = normalizarDescricao(descricao);
-        // Impressão digital do pedido do cliente: permite detectar a mesma chave reutilizada com outros dados
-        String hash = sha256(TipoTransacao.DEPOSITO + "|" + valor + "|" + Objects.toString(descricaoNormalizada, ""));
-        return new Transacao(UUID.randomUUID(), TipoTransacao.DEPOSITO, valor, null, carteiraDestinoId,
+        // Impressão digital do pedido do cliente: permite detectar a mesma chave reutilizada com outros dados.
+        // No depósito o destino é sempre a carteira de quem pede; na transferência, o destino faz parte do pedido.
+        String destinoDoPedido = tipo == TipoTransacao.TRANSFERENCIA ? "|" + carteiraDestinoId : "";
+        String hash = sha256(tipo + destinoDoPedido + "|" + valor + "|" + Objects.toString(descricaoNormalizada, ""));
+        return new Transacao(UUID.randomUUID(), tipo, valor, carteiraOrigemId, carteiraDestinoId,
                 descricaoNormalizada, iniciadaPor, chave, hash, Instant.now(relogio).truncatedTo(ChronoUnit.MICROS));
     }
 

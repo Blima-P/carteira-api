@@ -28,3 +28,13 @@ management:
     web:
       exposure:
         include: health,info
+
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:false}
+  swagger-ui:
+    enabled: ${API_DOCS_ENABLED:false}
+
+info:
+  app:
+    version: '@project.version@'

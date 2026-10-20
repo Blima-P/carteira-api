@@ -6,6 +6,36 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+## [0.2.0] - 2026-10-20
+
+Transferências, reenvio idempotente, extrato e entrega contínua com Docker.
+
+### Adicionado
+
+- Documentação OpenAPI e Swagger UI no modo local, com autenticação JWT e endpoints públicos de cadastro/login corretamente identificados. Fora do modo local, exige `API_DOCS_ENABLED=true`.
+- Relatórios HTML e XML de cobertura gerados pelo JaCoCo na fase `verify`.
+- Testes de integração da documentação habilitada e desabilitada, preservando a proteção das rotas de negócio.
+- `POST /api/transacoes/transferencias`: transferência para outro usuário, identificado pelo e-mail, com `Idempotency-Key` obrigatória. O débito, o crédito, a transação e os dois lançamentos são gravados **na mesma transação de banco**.
+- Bloqueio das duas carteiras **sempre na mesma ordem**, para evitar *deadlock* em transferências cruzadas simultâneas.
+- Novos erros `422`: `saldo-insuficiente`, `destinatario-nao-encontrado` e `transferencia-para-si-mesmo`.
+- `UsuarioApi`: API pública do módulo Usuário para buscar um usuário pelo e-mail.
+- Testes de concorrência: transferências simultâneas não gastam mais que o saldo e transferências cruzadas não causam *deadlock*.
+- **Reenvio idempotente**: reenviar uma operação com a mesma `Idempotency-Key` e os mesmos dados devolve o comprovante original (`201`, mesmo corpo, cabeçalho `Idempotent-Replayed: true`), sem movimentar saldo de novo.
+- Novo erro `422 chave-idempotencia-reutilizada`: a mesma chave enviada com dados diferentes.
+- `GET /api/transacoes/extrato`: extrato do mais recente para o mais antigo, com tipo, natureza (`CREDITO`/`DEBITO`), valor, saldo após cada operação, descrição e o nome da contraparte nas transferências.
+- **Paginação por cursor** (`tamanho` de 1 a 100, padrão 20, e `proximoCursor`): lançamentos novos não deslocam as páginas seguintes. Parâmetros inválidos retornam `400 dados-invalidos`.
+- `CarteiraApi` expõe a página do livro-razão e os donos das carteiras; `UsuarioApi` expõe os nomes por id.
+- **Imagem Docker** multi-stage: roda só com o JRE e um usuário sem privilégios, com camadas do Spring Boot e `HEALTHCHECK`.
+- Serviço `api` no `compose.yaml` (perfil `api`): `docker compose --profile api up` sobe a API e o PostgreSQL.
+- Teste de fumaça (`scripts/smoke-test.sh`) do fluxo completo pela API real.
+- Job `imagem-docker` no CI: constrói a imagem e roda o teste de fumaça em cada PR.
+- **Entrega por tag** (`entrega.yml`): `vX.Y.Z-rc.N` publica a imagem no GHCR e implanta em `homolog`; `vX.Y.Z` promove a mesma imagem para `production`, após aprovação manual. O deploy é simulado no runner e validado com o teste de fumaça.
+- Dependabot também atualiza as imagens base do Dockerfile e do `compose.yaml`.
+
+### Alterado
+
+- Uma chave repetida não retorna mais `409 chave-idempotencia-ja-utilizada`. O `409` agora é `chave-idempotencia-em-uso` e só ocorre quando duas requisições com a mesma chave chegam ao mesmo tempo; basta reenviar.
+
 ## [0.1.0] - 2026-10-08
 
 Primeira versão: cadastro, autenticação, saldo e depósito.
@@ -25,5 +55,6 @@ Primeira versão: cadastro, autenticação, saldo e depósito.
 - CI no GitHub Actions (build, testes e validação do título do PR), Dependabot e fluxo `develop` → `homolog` → `main` com branches protegidas.
 - ADRs 0001 a 0003 com as decisões de arquitetura.
 
-[Não lançado]: https://github.com/Blima-P/carteira-api/compare/v0.1.0...develop
+[Não lançado]: https://github.com/Blima-P/carteira-api/compare/v0.2.0...develop
+[0.2.0]: https://github.com/Blima-P/carteira-api/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Blima-P/carteira-api/releases/tag/v0.1.0

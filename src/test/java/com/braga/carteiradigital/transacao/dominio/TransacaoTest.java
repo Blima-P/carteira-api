@@ -73,6 +73,46 @@ class TransacaoTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void transferenciaDeveTerOrigemEDestino() {
+        UUID destinoId = UUID.randomUUID();
+
+        Transacao transferencia = transferencia(destinoId, "25.00");
+
+        assertThat(transferencia.tipo()).isEqualTo(TipoTransacao.TRANSFERENCIA);
+        assertThat(transferencia.carteiraOrigemId()).isEqualTo(carteiraId);
+        assertThat(transferencia.carteiraDestinoId()).isEqualTo(destinoId);
+        assertThat(transferencia.hashRequisicao()).hasSize(64);
+    }
+
+    @Test
+    void hashDaTransferenciaDeveMudarQuandoODestinoMuda() {
+        UUID destinoId = UUID.randomUUID();
+        String original = transferencia(destinoId, "25.00").hashRequisicao();
+
+        assertThat(transferencia(destinoId, "25.00").hashRequisicao()).isEqualTo(original);
+        assertThat(transferencia(UUID.randomUUID(), "25.00").hashRequisicao()).isNotEqualTo(original);
+        assertThat(transferencia(destinoId, "25.01").hashRequisicao()).isNotEqualTo(original);
+    }
+
+    @Test
+    void depositoETransferenciaComOsMesmosDadosSaoPedidosDiferentes() {
+        Transacao deposito = deposito("25.00", null);
+        Transacao transferencia = transferencia(UUID.randomUUID(), "25.00");
+
+        assertThat(deposito.ehMesmoPedidoQue(deposito("25.00", null))).isTrue();
+        assertThat(deposito.ehMesmoPedidoQue(transferencia)).isFalse();
+    }
+
+    @Test
+    void carteiraDeQuemIniciouDeveSerAOrigemNaTransferenciaEOProprioDestinoNoDeposito() {
+        UUID destinoId = UUID.randomUUID();
+
+        assertThat(transferencia(destinoId, "25.00").carteiraDeQuemIniciou()).isEqualTo(carteiraId);
+        assertThat(Transacao.deposito(destinoId, Dinheiro.de("1.00"), null, usuarioId, chave, RELOGIO)
+                .carteiraDeQuemIniciou()).isEqualTo(destinoId);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = { "", "com espaco", "acentuação", "a/b" })
     void chaveDeIdempotenciaDeveRecusarFormatoInvalido(String valor) {
@@ -87,5 +127,9 @@ class TransacaoTest {
 
     private Transacao deposito(String valor, String descricao) {
         return Transacao.deposito(carteiraId, Dinheiro.de(valor), descricao, usuarioId, chave, RELOGIO);
+    }
+
+    private Transacao transferencia(UUID destinoId, String valor) {
+        return Transacao.transferencia(carteiraId, destinoId, Dinheiro.de(valor), null, usuarioId, chave, RELOGIO);
     }
 }
