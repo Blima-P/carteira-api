@@ -17,5 +17,25 @@ services:
       timeout: 3s
       retries: 10
 
+  # Só sobe com o perfil "api": docker compose --profile api up -d --build
+  # Sem o perfil, sobe apenas o PostgreSQL (para rodar a API com ./mvnw spring-boot:run)
+  api:
+    profiles: [api]
+    image: ${API_IMAGE:-carteira-api:local}
+    build: .
+    container_name: carteira-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-carteira}
+      DB_USER: ${DB_USER:-carteira}
+      DB_PASSWORD: ${DB_PASSWORD:-carteira}
+      # Sem valor, a API não sobe e explica o motivo no log
+      JWT_SECRET: ${JWT_SECRET:-}
+      API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
+    ports:
+      - "8080:8080"
+
 volumes:
   postgres-data:
