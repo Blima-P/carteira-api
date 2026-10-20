@@ -41,3 +41,40 @@ jobs:
           name: surefire-reports
           path: target/surefire-reports/
           retention-days: 7
+
+  # Garante que o Dockerfile continua funcionando: constrói a imagem, sobe com o PostgreSQL e roda o teste de fumaça
+  imagem-docker:
+    name: imagem-docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Construir imagem
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: carteira-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Subir API e PostgreSQL
+        env:
+          API_IMAGE: carteira-api:ci
+        run: |
+          JWT_SECRET="$(openssl rand -base64 48)"
+          export JWT_SECRET
+          docker compose --profile api up -d --no-build --wait --wait-timeout 180
+
+      - name: Teste de fumaça
+        run: bash scripts/smoke-test.sh http://localhost:8080
+
+      - name: Logs da API (em caso de falha)
+        if: failure()
+        run: docker compose --profile api logs --no-color

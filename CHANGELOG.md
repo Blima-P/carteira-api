@@ -21,6 +21,12 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 - `GET /api/transacoes/extrato`: extrato do mais recente para o mais antigo, com tipo, natureza (`CREDITO`/`DEBITO`), valor, saldo após cada operação, descrição e o nome da contraparte nas transferências.
 - **Paginação por cursor** (`tamanho` de 1 a 100, padrão 20, e `proximoCursor`): lançamentos novos não deslocam as páginas seguintes. Parâmetros inválidos retornam `400 dados-invalidos`.
 - `CarteiraApi` expõe a página do livro-razão e os donos das carteiras; `UsuarioApi` expõe os nomes por id.
+- **Imagem Docker** multi-stage: roda só com o JRE e um usuário sem privilégios, com camadas do Spring Boot e `HEALTHCHECK`.
+- Serviço `api` no `compose.yaml` (perfil `api`): `docker compose --profile api up` sobe a API e o PostgreSQL.
+- Teste de fumaça (`scripts/smoke-test.sh`) do fluxo completo pela API real.
+- Job `imagem-docker` no CI: constrói a imagem e roda o teste de fumaça em cada PR.
+- **Entrega por tag** (`entrega.yml`): `vX.Y.Z-rc.N` publica a imagem no GHCR e implanta em `homolog`; `vX.Y.Z` promove a mesma imagem para `production`, após aprovação manual. O deploy é simulado no runner e validado com o teste de fumaça.
+- Dependabot também atualiza as imagens base do Dockerfile e do `compose.yaml`.
 
 ### Alterado
 

@@ -34,7 +34,7 @@ Histórico de versões no [CHANGELOG](CHANGELOG.md).
 - [x] Dia 5 — Idempotência (`Idempotency-Key`)
 - [x] Dia 6 — Extrato paginado (cursor)
 - [x] Dia 7 — Testes de concorrência e rollback
-- [ ] Dia 8 — Dockerfile + deploy simulado em homolog/produção (GitHub Actions + GHCR)
+- [x] Dia 8 — Dockerfile + deploy simulado em homolog/produção (GitHub Actions + GHCR)
 - [x] Swagger / OpenAPI com autenticação JWT documentada
 - [x] Relatório de cobertura com JaCoCo
 - [ ] Dia 9 — Documentação final e revisão do roadmap
@@ -98,19 +98,34 @@ No Windows (PowerShell), use `.\mvnw.cmd spring-boot:test-run`.
 6. Consulte `/api/transacoes/extrato`: a transferência aparece como `DEBITO` para quem enviou e `CREDITO` para quem recebeu.
 
 A demonstração é educacional e usa saldo fictício; não processa dinheiro real.
-Não há deploy público neste momento.
+Não há deploy público: o deploy em homologação e produção é simulado no GitHub Actions (veja [Entrega](#entrega)).
 Fora do modo local, Swagger e OpenAPI ficam desabilitados por padrão.
 Habilite ambos explicitamente com `API_DOCS_ENABLED=true` apenas quando quiser
 expor a documentação nesse ambiente; isso não libera as rotas de negócio protegidas por JWT.
 
 ### Com Docker
 
+API e PostgreSQL em contêineres (não precisa de Java instalado):
+
 ```bash
-cp .env.example .env          # opcional: ajuste credenciais
-docker compose up -d          # sobe o PostgreSQL 18
-export JWT_SECRET="$(openssl rand -base64 48)"   # obrigatório fora do modo dev
+cp .env.example .env                              # opcional: ajuste credenciais
+export JWT_SECRET="$(openssl rand -base64 48)"    # obrigatório: pelo menos 32 caracteres
+docker compose --profile api up -d --build        # constrói a imagem e sobe API + PostgreSQL
+./scripts/smoke-test.sh                           # opcional: testa o fluxo completo (requer curl e jq)
+docker compose --profile api down                 # encerra (use -v para apagar os dados)
+```
+
+Para usar uma imagem já publicada, sem construir: `API_IMAGE=ghcr.io/blima-p/carteira-api:latest docker compose --profile api up -d`.
+
+Só o banco no Docker, com a API rodando pelo Maven ou pela IDE:
+
+```bash
+docker compose up -d          # sem o perfil "api", sobe só o PostgreSQL 18
+export JWT_SECRET="$(openssl rand -base64 48)"
 ./mvnw spring-boot:run        # o Flyway cria as tabelas na inicialização
 ```
+
+A imagem usa build multi-stage, roda só com o JRE e um usuário sem privilégios, e é dividida nas camadas do Spring Boot. Detalhes em [ADR 0007](docs/adr/0007-entrega-com-conteiner-e-deploy-simulado.md).
 
 ## Endpoints
 
@@ -168,7 +183,7 @@ Erros seguem o padrão **Problem Details (RFC 9457)**, sempre com um `codigo` es
 { "status": 409, "codigo": "email-ja-cadastrado", "detail": "Já existe um usuário com este e-mail." }
 ```
 
-Decisões de segurança em [ADR 0002](docs/adr/0002-autenticacao-jwt.md). Decisões sobre dinheiro, livro-razão e concorrência em [ADR 0003](docs/adr/0003-movimentacao-de-saldo.md). Decisões da transferência em [ADR 0004](docs/adr/0004-transferencia-entre-carteiras.md) e da idempotência em [ADR 0005](docs/adr/0005-idempotencia-com-reenvio.md). Decisões do extrato em [ADR 0006](docs/adr/0006-extrato-paginado-por-cursor.md).
+Decisões de segurança em [ADR 0002](docs/adr/0002-autenticacao-jwt.md). Decisões sobre dinheiro, livro-razão e concorrência em [ADR 0003](docs/adr/0003-movimentacao-de-saldo.md). Decisões da transferência em [ADR 0004](docs/adr/0004-transferencia-entre-carteiras.md) e da idempotência em [ADR 0005](docs/adr/0005-idempotencia-com-reenvio.md). Decisões do extrato em [ADR 0006](docs/adr/0006-extrato-paginado-por-cursor.md). Decisões de contêiner e entrega em [ADR 0007](docs/adr/0007-entrega-com-conteiner-e-deploy-simulado.md).
 
 ## Modelo de dados
 
@@ -210,3 +225,20 @@ Destaques:
 
 `feat/*` → `develop` → `homolog` → `main`, com Pull Requests, CI obrigatório, Conventional Commits e versionamento SemVer via tags.
 Detalhes em [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Entrega
+
+Cada PR roda dois jobs no CI: `build-and-test` (testes com PostgreSQL real) e `imagem-docker` (constrói a imagem, sobe com o banco e roda o [teste de fumaça](scripts/smoke-test.sh)).
+
+O deploy é disparado pelas tags de versão ([`entrega.yml`](.github/workflows/entrega.yml)):
+
+```text
+tag vX.Y.Z-rc.N (homolog) ──► constrói a imagem ──► publica no GHCR ──► implanta em homolog ──► teste de fumaça
+tag vX.Y.Z      (main)    ──► aprovação manual  ──► promove a MESMA imagem ──► implanta em production ──► teste de fumaça
+```
+
+- **Construir uma vez, implantar várias:** produção recebe a imagem homologada (mesmo digest `sha256`), não uma nova. A tag final precisa ter exatamente o mesmo código da última `rc`.
+- **Ambientes do GitHub:** `homolog` e `production`, cada um com o próprio `JWT_SECRET`; `production` exige aprovação.
+- **Deploy simulado:** a implantação sobe a imagem com um PostgreSQL no runner do GitHub Actions e valida com o teste de fumaça. Num ambiente real, só esse passo mudaria.
+
+Imagens publicadas em [`ghcr.io/blima-p/carteira-api`](https://github.com/Blima-P/carteira-api/pkgs/container/carteira-api).

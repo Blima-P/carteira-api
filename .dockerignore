@@ -1,0 +1,6 @@
+# Lista do que PODE entrar na imagem (todo o resto fica fora: .git, target, .env, docs...)
+*
+!.mvn/wrapper/maven-wrapper.properties
+!mvnw
+!pom.xml
+!src/main/

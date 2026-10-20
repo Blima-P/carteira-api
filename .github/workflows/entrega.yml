@@ -1,0 +1,213 @@
+name: Entrega
+
+# Deploy simulado, disparado pelas tags de versão (ver CONTRIBUTING.md):
+#   vX.Y.Z-rc.N (na homolog) -> constrói a imagem, publica no GHCR e implanta em "homolog"
+#   vX.Y.Z      (na main)    -> promove para "production" a MESMA imagem homologada, após aprovação
+# "Implantar" aqui é subir a imagem com um PostgreSQL no runner e validar com o teste de fumaça;
+# num ambiente real, este seria o passo que atualiza o servidor ou o cluster.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  preparar:
+    name: preparar
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ambiente: ${{ steps.alvo.outputs.ambiente }}
+      versao: ${{ steps.alvo.outputs.versao }}
+      tag-homologada: ${{ steps.alvo.outputs.tag-homologada }}
+      imagem: ${{ steps.alvo.outputs.imagem }}
+
+    steps:
+      - name: Checkout (com histórico e tags)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Validar a tag e escolher o ambiente
+        id: alvo
+        env:
+          TAG: ${{ github.ref_name }}
+          REPOSITORIO: ${{ github.repository }}
+        run: |
+          erro() { echo "::error::$*"; exit 1; }
+
+          [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)(-rc\.[0-9]+)?$ ]] \
+            || erro "Tag fora do padrão vX.Y.Z ou vX.Y.Z-rc.N: $TAG"
+          versao="${BASH_REMATCH[1]}"
+          candidata="${BASH_REMATCH[2]}"
+
+          versao_pom="$(python3 -c 'import xml.etree.ElementTree as E; print(E.parse("pom.xml").getroot().findtext("{http://maven.apache.org/POM/4.0.0}version"))')"
+          [ "$versao_pom" = "$versao" ] \
+            || erro "A tag $TAG não corresponde à versão do pom.xml ($versao_pom)"
+
+          if [ -n "$candidata" ]; then
+            ambiente=homolog; branch=homolog
+          else
+            ambiente=production; branch=main
+          fi
+          git merge-base --is-ancestor "$GITHUB_SHA" "origin/$branch" \
+            || erro "A tag $TAG deve apontar para um commit da branch $branch"
+
+          tag_homologada=""
+          if [ "$ambiente" = production ]; then
+            # Produção recebe a imagem que passou pela homologação, e não uma imagem nova
+            tag_homologada="$(git tag --list "v$versao-rc.*" --sort=-version:refname | head -n 1)"
+            [ -n "$tag_homologada" ] || erro "Nenhuma tag v$versao-rc.N encontrada: homologue a versão antes"
+            [ "$(git rev-parse "$TAG^{tree}")" = "$(git rev-parse "$tag_homologada^{tree}")" ] \
+              || erro "O código de $TAG difere do homologado em $tag_homologada"
+          fi
+
+          {
+            echo "ambiente=$ambiente"
+            echo "versao=$versao"
+            echo "tag-homologada=$tag_homologada"
+            echo "imagem=ghcr.io/${REPOSITORIO,,}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Tag $TAG -> ambiente $ambiente${tag_homologada:+ (imagem de $tag_homologada)}"
+
+  imagem:
+    name: imagem
+    needs: preparar
+    if: needs.preparar.outputs.ambiente == 'homolog'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login no GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags e labels da imagem
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ needs.preparar.outputs.imagem }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,format=long
+          flavor: latest=false
+
+      - name: Construir e publicar
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  implantar:
+    name: implantar
+    needs: [preparar, imagem]
+    # Em produção o job "imagem" é pulado (a imagem já existe), então "skipped" também vale
+    if: >-
+      always() && needs.preparar.result == 'success'
+      && (needs.imagem.result == 'success' || needs.imagem.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # O ambiente "production" exige aprovação manual antes deste job começar
+    environment:
+      name: ${{ needs.preparar.outputs.ambiente }}
+      url: https://github.com/${{ github.repository }}/pkgs/container/${{ github.event.repository.name }}
+    concurrency:
+      group: implantar-${{ needs.preparar.outputs.ambiente }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout (compose.yaml e teste de fumaça)
+        uses: actions/checkout@v7
+
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login no GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Escolher a imagem
+        id: imagem
+        env:
+          IMAGEM: ${{ needs.preparar.outputs.imagem }}
+          DIGEST: ${{ needs.imagem.outputs.digest }}
+          TAG_HOMOLOGADA: ${{ needs.preparar.outputs.tag-homologada }}
+        run: |
+          if [ -z "$DIGEST" ]; then
+            DIGEST="$(docker buildx imagetools inspect "$IMAGEM:${TAG_HOMOLOGADA#v}" --format '{{json .Manifest}}' | jq -r .digest)"
+          fi
+          [[ "$DIGEST" == sha256:* ]] || { echo "::error::Digest da imagem não encontrado"; exit 1; }
+          # Pelo digest, e não por tag: garante que a imagem testada é exatamente a que será promovida
+          echo "referencia=$IMAGEM@$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Implantar (API + PostgreSQL)
+        env:
+          API_IMAGE: ${{ steps.imagem.outputs.referencia }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          [ -n "$JWT_SECRET" ] || { echo "::error::Defina o secret JWT_SECRET no ambiente"; exit 1; }
+          docker compose --profile api up -d --no-build --wait --wait-timeout 180
+
+      - name: Teste de fumaça
+        run: bash scripts/smoke-test.sh http://localhost:8080
+
+      - name: Logs da API (em caso de falha)
+        if: failure()
+        run: docker compose --profile api logs --no-color
+
+      - name: Marcar a imagem como implantada
+        env:
+          IMAGEM: ${{ needs.preparar.outputs.imagem }}
+          REFERENCIA: ${{ steps.imagem.outputs.referencia }}
+          AMBIENTE: ${{ needs.preparar.outputs.ambiente }}
+          VERSAO: ${{ needs.preparar.outputs.versao }}
+        run: |
+          if [ "$AMBIENTE" = production ]; then
+            tags=(-t "$IMAGEM:producao" -t "$IMAGEM:latest" -t "$IMAGEM:$VERSAO" -t "$IMAGEM:${VERSAO%.*}")
+          else
+            tags=(-t "$IMAGEM:homolog")
+          fi
+          # Só cria novas tags apontando para o mesmo digest; nenhuma imagem é reconstruída
+          docker buildx imagetools create "${tags[@]}" "$REFERENCIA"
+
+      - name: Resumo
+        env:
+          REFERENCIA: ${{ steps.imagem.outputs.referencia }}
+          AMBIENTE: ${{ needs.preparar.outputs.ambiente }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          {
+            echo "### Deploy simulado em \`$AMBIENTE\`"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Versão | \`$TAG\` |"
+            echo "| Imagem | \`$REFERENCIA\` |"
+            echo "| Teste de fumaça | aprovado |"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -17,3 +17,22 @@ updates:
       interval: weekly
     commit-message:
       prefix: ci
+
+  # Imagens base do Dockerfile (eclipse-temurin) e do compose.yaml (postgres)
+  - package-ecosystem: docker
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+      include: scope
+
+  - package-ecosystem: docker-compose
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+      include: scope

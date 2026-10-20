@@ -59,8 +59,10 @@ Mudanças incompatíveis usam `!` (`feat(api)!: ...`) e geram versão **major**.
 
 Tags:
 
-- `vX.Y.Z-rc.N` — *release candidate*, criada na `homolog`
-- `vX.Y.Z` — versão final, criada na `main` (gera uma GitHub Release)
+- `vX.Y.Z-rc.N` — *release candidate*, criada na `homolog`: publica a imagem no GHCR e faz o deploy em **homolog**
+- `vX.Y.Z` — versão final, criada na `main`: promove a mesma imagem para **production** (após aprovação) e gera uma GitHub Release
+
+A versão da tag precisa ser igual à do `pom.xml`, e a tag final precisa ter o mesmo código da última `rc`; caso contrário, o workflow `Entrega` falha.
 
 ## Passo a passo de uma feature
 
@@ -87,6 +89,8 @@ gh pr create --base homolog --head develop --title "release: v0.1.0"
 git switch homolog && git pull
 git tag -a v0.1.0-rc.1 -m "v0.1.0-rc.1"
 git push origin v0.1.0-rc.1
+# o workflow "Entrega" publica a imagem e faz o deploy em homolog:
+gh run watch "$(gh run list --workflow entrega.yml --limit 1 --json databaseId -q '.[0].databaseId')"
 
 # 2. homolog -> main (após validar em homologação)
 gh pr create --base main --head homolog --title "release: v0.1.0"
@@ -94,5 +98,8 @@ gh pr create --base main --head homolog --title "release: v0.1.0"
 git switch main && git pull
 git tag -a v0.1.0 -m "v0.1.0"
 git push origin v0.1.0
+# aprove o deploy em Actions > Entrega > "Review deployments" (ambiente production)
 gh release create v0.1.0 --generate-notes
 ```
+
+Se algo falhar na homologação, corrija na `develop`, leve para a `homolog` e crie a próxima `rc` (`v0.1.0-rc.2`).
