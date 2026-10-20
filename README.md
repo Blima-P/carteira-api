@@ -1,6 +1,8 @@
 # Carteira API
 
 [![CI](https://github.com/Blima-P/carteira-api/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Blima-P/carteira-api/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Blima-P/carteira-api?label=release)](https://github.com/Blima-P/carteira-api/releases)
+[![Licença: MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)](LICENSE)
 
 API REST de carteira digital: usuários podem **depositar**, **transferir saldo entre si** e **consultar o saldo e o extrato**.
 
@@ -10,14 +12,30 @@ O foco do projeto é demonstrar requisitos essenciais de sistemas financeiros:
 - **Idempotência**: uma falha de rede que faça o cliente reenviar a requisição não processa a transferência duas vezes.
 - **Segurança**: autenticação via JWT.
 
+## Destaques
+
+O que vale olhar primeiro, e onde está a prova de cada item:
+
+| Garantia | Como | Onde ver |
+|----------|------|----------|
+| Transferência atômica | Débito, crédito e lançamentos na mesma transação; falha no meio desfaz tudo | [`TransferirService`](src/main/java/com/braga/carteiradigital/transacao/aplicacao/TransferirService.java), [`AtomicidadeIntegracaoTest`](src/test/java/com/braga/carteiradigital/AtomicidadeIntegracaoTest.java) |
+| Sem saldo negativo sob concorrência | Lock pessimista nas duas carteiras, sempre na mesma ordem (sem *deadlock*) | [`TransferenciaIntegracaoTest`](src/test/java/com/braga/carteiradigital/transacao/TransferenciaIntegracaoTest.java): 15 transferências simultâneas |
+| Sem cobrança em dobro | `Idempotency-Key` com reenvio do comprovante original | [`ExecutorIdempotente`](src/main/java/com/braga/carteiradigital/transacao/aplicacao/ExecutorIdempotente.java), [ADR 0005](docs/adr/0005-idempotencia-com-reenvio.md) |
+| Regras garantidas pelo banco | Constraints e trigger: saldo ≥ 0, livro-razão imutável, chave única | [`V1__cria_schema_inicial.sql`](src/main/resources/db/migration/V1__cria_schema_inicial.sql) |
+| Fronteiras entre módulos | O build falha se um módulo acessar o interior de outro | [`ArquiteturaTest`](src/test/java/com/braga/carteiradigital/ArquiteturaTest.java) |
+| Entrega contínua | Imagem Docker publicada no GHCR, homologação e produção com aprovação | [`entrega.yml`](.github/workflows/entrega.yml), [ADR 0007](docs/adr/0007-entrega-com-conteiner-e-deploy-simulado.md) |
+
+Cada decisão importante está registrada, com o contexto e os prós e contras, nos [ADRs](docs/adr).
+
 ## Stack
 
 - Java 21 + Spring Boot 4
 - Spring Modulith (monólito modular) + arquitetura hexagonal
 - PostgreSQL + Flyway
 - Spring Security (JWT)
-- Docker / Docker Compose
-- JUnit 5 + testes de integração
+- Docker / Docker Compose + GitHub Container Registry
+- GitHub Actions (CI, entrega e ambientes com aprovação)
+- JUnit 5 + testes de integração com PostgreSQL real
 - OpenAPI / Swagger UI (habilitado no modo local)
 - JaCoCo (relatórios de cobertura)
 
@@ -37,7 +55,16 @@ Histórico de versões no [CHANGELOG](CHANGELOG.md).
 - [x] Dia 8 — Dockerfile + deploy simulado em homolog/produção (GitHub Actions + GHCR)
 - [x] Swagger / OpenAPI com autenticação JWT documentada
 - [x] Relatório de cobertura com JaCoCo
-- [ ] Dia 9 — Documentação final e revisão do roadmap
+- [x] Dia 9 — Documentação final e revisão do roadmap
+
+Próximos passos possíveis:
+
+- [ ] *Refresh token* e revogação de sessões ([ADR 0002](docs/adr/0002-autenticacao-jwt.md))
+- [ ] Limite de requisições (*rate limiting*) no login e nas transferências ([ADR 0004](docs/adr/0004-transferencia-entre-carteiras.md))
+- [ ] Prazo de validade para as chaves de idempotência, hoje mantidas para auditoria ([ADR 0005](docs/adr/0005-idempotencia-com-reenvio.md))
+- [ ] Observabilidade: métricas (Micrometer/Prometheus) e logs com id de correlação
+- [ ] Notificações de transferência recebida via *outbox* de eventos (Spring Modulith)
+- [ ] Deploy real em um provedor de nuvem (só o passo de implantação muda)
 
 ## Arquitetura
 

@@ -18,7 +18,8 @@ updates:
     commit-message:
       prefix: ci
 
-  # Imagens base do Dockerfile (eclipse-temurin) e do compose.yaml (postgres)
+  # Imagens base do Dockerfile (eclipse-temurin) e do compose.yaml (postgres).
+  # Versões major (ex.: Java 21 -> 25, PostgreSQL 18 -> 19) são migrações planejadas, não atualizações automáticas
   - package-ecosystem: docker
     directory: /
     target-branch: develop
@@ -27,6 +28,9 @@ updates:
     commit-message:
       prefix: build
       include: scope
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker-compose
     directory: /
@@ -36,3 +40,6 @@ updates:
     commit-message:
       prefix: build
       include: scope
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
