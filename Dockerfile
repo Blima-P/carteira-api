@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- Build: compila o jar e separa as camadas do Spring Boot ----
-FROM eclipse-temurin:21-jdk-alpine AS build
+FROM eclipse-temurin:25-jdk-alpine AS build
 WORKDIR /build
 
 # Dependências primeiro: enquanto o pom.xml não mudar, esta camada vem do cache
@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -ntp package -Dmaven.test.skip
     && java -Djarmode=tools -jar application.jar extract --layers --destination extracted
 
 # ---- Runtime: só o JRE e a aplicação, sem Maven nem código-fonte ----
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 LABEL org.opencontainers.image.source="https://github.com/Blima-P/carteira-api" \
       org.opencontainers.image.description="API REST de carteira digital" \
       org.opencontainers.image.licenses="MIT"
