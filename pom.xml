@@ -16,7 +16,7 @@
 
 	<properties>
 		<java.version>21</java.version>
-		<spring-modulith.version>2.1.1</spring-modulith.version>
+		<spring-modulith.version>2.1.2</spring-modulith.version>
 		<embedded-postgres.version>2.2.2</embedded-postgres.version>
 		<springdoc.version>3.1.1</springdoc.version>
 		<jacoco.version>0.8.15</jacoco.version>
